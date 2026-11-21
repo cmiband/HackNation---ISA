@@ -75,10 +75,11 @@ HackNation---ISA/
 │   ├── service.py            # AIService: implements AIServiceProtocol, wires modules below
 │   ├── mock.py               # MockAIService: canned data, AI_MOCK=1
 │   ├── llm/
-│   │   ├── base.py           # LLMClient interface (structured output via Pydantic)
-│   │   ├── openai_compat.py  # cloud API now; local server later = config change
-│   │   ├── none_client.py    # LLM_PROVIDER=none → deterministic fallbacks
-│   │   └── prompts/          # prompt templates (*.md / *.j2)
+│   │   ├── config.py         # LLMSettings from env (LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL, LLM_API_KEY)
+│   │   ├── model_factory.py  # Pydantic AI model: "<provider>:<model>" or OpenAI-compatible base URL
+│   │   ├── schemas.py        # structured outputs (RequestQuestions)
+│   │   ├── question_extraction.py  # QuestionExtractor: request text → self-contained questions
+│   │   └── prompts/          # prompt templates (*.md)
 │   ├── embeddings/
 │   │   └── embedder.py       # sentence-transformers, model from EMBEDDING_MODEL
 │   ├── vector_store/         # swappable, see section 5
@@ -119,8 +120,7 @@ HackNation---ISA/
 └── tests/
     ├── contracts/test_mock_conforms.py   # MockAIService & AIService satisfy the Protocol
     ├── app/test_deadlines.py
-    ├── app/test_parser.py
-    └── ai_service/test_recognizers.py
+    └── ai_service/test_question_extraction.py
 ```
 
 ### Import rules
@@ -247,10 +247,11 @@ version on the team's machines; if unsupported, ship `.env` defaults through `en
 ### 3.3 `.env.example`
 
 ```dotenv
-# LLM (cloud API in the MVP). none = deterministic mode, no API key needed.
-LLM_PROVIDER=none              # openai_compat | none
-LLM_BASE_URL=
-LLM_MODEL=
+# LLM (cloud API in the MVP). LLM_PROVIDER=none = deterministic mode, no API key needed.
+LLM_PROVIDER=
+LLM_MODEL=google:gemini-3.6-flash   # Pydantic AI string "<provider>:<model>"
+GEMINI_API_KEY=                # Google first; or OPENAI_API_KEY / ANTHROPIC_API_KEY, per provider
+LLM_BASE_URL=                  # optional OpenAI-compatible endpoint (Ollama/vLLM); then LLM_MODEL = plain name
 LLM_API_KEY=
 
 # Development

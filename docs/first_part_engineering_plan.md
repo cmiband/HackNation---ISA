@@ -52,7 +52,7 @@ Browser ─▶ Streamlit app (app/) ──(Python call)──▶ AIService (ai_s
 
 - **One Python process, one Docker container.** There is no HTTP between subteams: the Streamlit app imports the AI layer as a Python class behind a shared interface (§4).
 - **Subteam A (2 people):** Streamlit UI, registry, deadline engine, DB layer.
-- **Subteam B (2 people):** `AIService` — LLM client, embeddings, vector store, hybrid retrieval, department routing, archive indexing.
+- **Subteam B (2 people):** document parsing (PDF/DOCX → text, on the AI side), `AIService` — LLM client, embeddings, vector store, hybrid retrieval, department routing, archive indexing.
 - **Why no HTTP:** with API-only LLMs there is no heavy local model to isolate, so an internal HTTP hop adds ports, serialization and "service down" states without benefit. A FastAPI wrapper over the same class can be added later if other clients appear.
 
 ---
@@ -179,9 +179,14 @@ Use one DB connection/session per thread or Streamlit session.
 - Normalize the team's Bydgoszcz City Hall departments & offices list into a clean JSON structure loaded at startup (code, name, scope of responsibilities).
 
 ### 6.3 LLM Provider Abstraction (`ai_service/llm/`)
-- Interface in `base.py`; `openai_compat.py` for the hackathon cloud API; `none_client.py` for `LLM_PROVIDER=none`.
-- Configured via `.env`: `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`.
-- Ollama, vLLM and llama.cpp server expose an OpenAI-compatible API, so the production switch to a local model is a config change.
+- Built on **Pydantic AI** (`pydantic-ai-slim[openai,anthropic,google]`): `Agent(model, output_type=<Pydantic model>, instructions=...)` gives validated structured output.
+- `config.py` reads settings; `model_factory.py` is the single place where the provider is chosen; prompts live in `prompts/*.md`.
+- Configured via `.env`:
+  - `LLM_MODEL` — Pydantic AI model string `<provider>:<model>` (e.g. `openai:…`, `anthropic:…`, `google:…`); the API key is read from the provider's standard variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …).
+  - `LLM_BASE_URL` + `LLM_API_KEY` (optional) — OpenAI-compatible endpoint (Ollama, vLLM, llama.cpp server); then `LLM_MODEL` is a plain model name. This is the production switch to a local model.
+  - `LLM_PROVIDER=none` (or no `LLM_MODEL`) — LLM disabled, deterministic fallbacks.
+- **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers.
+- Manual check: `uv run --env-file .env python scripts/extract_questions.py "<request.docx>"`.
 - Use structured output (JSON schema / Pydantic) for `summary`, metadata and department ranking; check the provider's docs for support.
 - **LLM-optional core:** with `LLM_PROVIDER=none`, retrieval and routing still work (deterministic fallbacks); the LLM only adds summaries and explanations. This also makes the demo resilient to API outages.
 - **Production model candidates (for the presentation, not run in the MVP):**
@@ -229,7 +234,7 @@ Use one DB connection/session per thread or Streamlit session.
    - Create `contracts/` (§4), `ai_service/factory.py`, `ai_service/mock.py`, and `data/departments.json`.
 2. **Step 2 — Parallel Development:**
    - **Subteam A:** `app/db/`, `app/services/deadlines.py`, `app/services/registry.py`, `app/services/ai.py`, Streamlit pages (Calendar/Table, Upload & Triage, Case view) working against `MockAIService`.
-   - **Subteam B:** `ai_service/llm/`, `ai_service/embeddings/`, `ai_service/vector_store/`, `ai_service/retrieval/`, `ai_service/routing/`, `ai_service/ingestion/`, `ai_service/service.py`, `scripts/seed_all.py`, `scripts/reindex.py`, `scripts/download_models.py`.
+   - **Subteam B:** `ai_service/llm/` (question extraction done), `ai_service/embeddings/`, `ai_service/vector_store/`, `ai_service/retrieval/`, `ai_service/routing/`, `ai_service/ingestion/`, `ai_service/service.py`, `scripts/seed_all.py`, `scripts/reindex.py`, `scripts/download_models.py`.
 3. **Step 3 — Integration & End-to-End Smoke Test:**
    - Switch `AI_MOCK=0`; run natively (`uv run streamlit run app/ui/main.py`) and then via `docker compose up --build`.
    - Upload a sample `.pdf` and `.docx` request, verify similar past cases appear, department suggestions match the Bydgoszcz list, edit/confirm metadata, and check the new item appears in the sorted calendar with correct deadline highlighting.
