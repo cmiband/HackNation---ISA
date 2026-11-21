@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 from app.db.models import Case, CaseHistory, Department, DepartmentRequest, FileData
 from contracts.enums import FileType
 
-DEPARTMENTS_JSON = Path(__file__).with_name("departments_responsibilities.json")
+DEPARTMENTS_JSON = Path(__file__).resolve().parents[2] / "data" / "departments.json"
 
 
 class CaseRepository:
@@ -28,6 +28,7 @@ class CaseRepository:
         self.session.add(case)
         self.session.commit()
         self.session.refresh(case)
+        self.session.refresh(case.application)
         return case
 
     def add_with_application(self, case: Case, application: FileData) -> Case:
@@ -50,6 +51,7 @@ class CaseRepository:
         self.session.commit()
         for case in cases:
             self.session.refresh(case)
+            self.session.refresh(case.application)
         return list(cases)
 
     def update(self, case: Case) -> Case:
