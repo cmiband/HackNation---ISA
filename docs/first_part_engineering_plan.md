@@ -163,9 +163,16 @@ Use one DB connection/session per thread or Streamlit session.
 
 **Implemented** in `app/db/repository.py` (each class takes a `Session`; every write commits and refreshes):
 - `CaseRepository`: `add`, `add_with_application`, `add_all`, `update`, `get_cases_by_assignee_id`, `get_case_by_id`.
-  - `add_with_application(case, application)` inserts a new `Case` and its unsaved `FileData` (`FileType.APPLICATION`) in one transaction. It links them through `Case.application`, so `application_id` is filled at insert time.
+  - `add_with_application(case, application)` is a shortcut: it checks that `application.file_type` is `FileType.APPLICATION`, sets `case.application` and calls `add`; it raises `ValueError` otherwise.
+  - **How to create a `Case`:** use `CaseRepository.add` (one case) or `add_all` (many). The caller must put the application `FileData` object in the `Case.application` field, and that `FileData` must **not** be inserted yet (no `session.add`, no `FileDataRepository.add`, no commit). SQLAlchemy then inserts the `file_data` row first, fills `case.application_id` and inserts the `case` row, all in one transaction, so there is never a stored case without an application or an orphan application file. Do not set `application_id` by hand.
+    ```python
+    application = FileData(file_type=FileType.APPLICATION, ...)  # unsaved
+    case = Case(application=application, ...)                    # application field filled, no application_id
+    case = CaseRepository(session).add(case)
+    ```
+  - Do not call `FileDataRepository.add(application)` before creating the case. It commits on its own, which breaks the single transaction.
 - `DepartmentRepository`: `add`, `get_by_id`, `load_departments`.
-  - `load_departments()` seeds the `department` table from `app/db/departments_responsibilities.json` (`code`, `name`, `responsibilities`), but only when the table is empty.
+  - `load_departments()` seeds the `department` table from `data/departments.json` (`code`, `name`, `responsibilities`; other fields ignored), but only when the table is empty.
 - `app/db/engine.py::init_db()` creates all tables (`SQLModel.metadata.create_all`) and calls `load_departments()`. It is idempotent. `app/ui/main.py` calls it once per process through `st.cache_resource`, so both Docker and native runs set up the DB on start.
 - `FileDataRepository`: `add`, `add_all`, `get_by_id`.
 - `DepartmentRequestRepository`: `add`, `update`, `get_by_id`, `get_dep_requests_by_case_id`.
