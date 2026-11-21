@@ -4,12 +4,22 @@ All files uploaded here are treated as incoming Applications and saved to `stora
 """
 
 from collections.abc import Callable, Sequence
+from contextlib import ExitStack
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
 import streamlit as st
+from sqlmodel import Session
 
+from app.db.engine import engine
+from app.db.models import Case, FileData
+from app.db.repository import CaseRepository
 from app.services.file_storage import save_uploaded_file
+from contracts.enums import CaseStatus, FileType
+
+# Default response deadline (UDIP); real calculation lives in app/services/deadlines.py (not yet implemented).
+RESPONSE_DEADLINE_DAYS = 14
 
 # Legacy .doc is not supported by the parser (python-docx reads only .docx).
 ALLOWED_EXTENSIONS = ["pdf", "docx"]
@@ -69,22 +79,37 @@ def load_files(
     on_file: Callable[[int, int, _NamedFile, Path], None] | None = None,
     *,
     applications_dir: Path | None = None,
+    session: Session | None = None,
 ) -> list[Path]:
-    """Save each accepted file as an Application under host storage (`applications/`)."""
+    """Save each accepted file as an Application under host storage and register it in the DB.
+
+    Every file creates one `FileData` (APPLICATION) + one `Case` (status NEW).
+    """
     total = len(files)
     saved_paths: list[Path] = []
-    for idx, f in enumerate(files, start=1):
-        saved_path = save_uploaded_file(
-            f.name,
-            _read_bytes(f),
-            is_application=True,
-            applications_dir=applications_dir,
-        )
-        # DB hook: register FileData / Case metadata here using `saved_path.name`
-        # (actual filename on disk after deduplication) and `FileType.APPLICATION`.
-        saved_paths.append(saved_path)
-        if on_file is not None:
-            on_file(idx, total, f, saved_path)
+    with ExitStack() as stack:
+        db = session if session is not None else stack.enter_context(Session(engine))
+        cases = CaseRepository(db)
+        for idx, f in enumerate(files, start=1):
+            saved_path = save_uploaded_file(
+                f.name,
+                _read_bytes(f),
+                is_application=True,
+                applications_dir=applications_dir,
+            )
+            # `saved_path.name` is the actual filename on disk after deduplication.
+            today = date.today()
+            cases.add_with_application(
+                Case(
+                    created_date=today,
+                    response_deadline=today + timedelta(days=RESPONSE_DEADLINE_DAYS),
+                    status=CaseStatus.NEW,
+                ),
+                FileData(filename=saved_path.name, file_type=FileType.APPLICATION),
+            )
+            saved_paths.append(saved_path)
+            if on_file is not None:
+                on_file(idx, total, f, saved_path)
     return saved_paths
 
 
