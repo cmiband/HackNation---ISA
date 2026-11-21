@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import text
-from sqlmodel import Session, create_engine
+from sqlmodel import Session, SQLModel, create_engine
+
 from app.config import settings
 
 # SQLite connection args for multithreaded Streamlit usage

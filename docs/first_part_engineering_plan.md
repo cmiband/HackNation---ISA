@@ -224,6 +224,7 @@ read-only summary table, accept/reject — all files are treated as Applications
   - `LLM_BASE_URL` + `LLM_API_KEY` (optional) — OpenAI-compatible endpoint (Ollama, vLLM, llama.cpp server); then `LLM_MODEL` is a plain model name. This is the production switch to a local model.
   - `LLM_PROVIDER=none` (or no `LLM_MODEL`) — LLM disabled, deterministic fallbacks.
 - **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers.
+- **Implemented — request summary** (`summarization.py`): `RequestSummarizer.from_env().summarize(request_text)` → `str`, one short description of the **whole** request (1–2 sentences, ≤ 300 characters, original language, no personal data) for the frontend — e.g. `Case.topic` / `AnalyzeResult.summary`. One LLM call per request; a longer answer is sent back for a retry. Without an LLM: the beginning of the text, cut at a word boundary.
 - **Implemented — OCR** (`ocr.py`): `LLMOcr.transcribe(pdf_bytes)` sends a scanned PDF to the multimodal LLM (Gemini) and returns the verbatim text.
 
 ### 6.3a Document Parser (`ai_service/parsing/`) — implemented

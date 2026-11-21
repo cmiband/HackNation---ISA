@@ -2,15 +2,16 @@
 
     uv run --env-file .env python scripts/extract_questions.py "<file.pdf|file.docx>" [...]
     uv run --env-file .env python scripts/extract_questions.py --route "<file>"       # + departments
+    uv run --env-file .env python scripts/extract_questions.py --summary "<file>"     # short description only
     uv run --env-file .env python scripts/extract_questions.py --text-only "<file>"   # parser only
 
-Each LLM step is one API request per file (OCR for scans, extraction, routing).
+Each LLM step is one API request per file (OCR for scans, extraction, routing, summary).
 """
 
 import json
 import sys
 
-from ai_service.llm import QuestionExtractor
+from ai_service.llm import QuestionExtractor, RequestSummarizer
 from ai_service.parsing import DocumentParseError, DocumentParser
 from ai_service.routing import DepartmentRouter
 
@@ -18,6 +19,7 @@ from ai_service.routing import DepartmentRouter
 def main(args: list[str]) -> None:
     text_only = "--text-only" in args
     route = "--route" in args
+    summary_only = "--summary" in args
     paths = [a for a in args if not a.startswith("--")]
     parser = DocumentParser.from_env()
     extractor = None if text_only else QuestionExtractor.from_env()
@@ -32,6 +34,8 @@ def main(args: list[str]) -> None:
         out: dict = {"file": p, "method": doc.method, "pages": doc.pages}
         if text_only:
             out["text"] = doc.text
+        elif summary_only:
+            out["summary"] = RequestSummarizer.from_env().summarize(doc.text)
         else:
             questions = extractor.extract(doc.text).questions
             if router is None:
