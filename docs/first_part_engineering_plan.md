@@ -12,7 +12,7 @@ We are building an **Intelligent Assistant for Public Officials** to handle **Ac
    - The MVP uses **cloud LLM APIs only**; no local LLM is run during the hackathon.
    - All LLM calls go through a provider abstraction (§6.3) so production can switch to a local model by configuration, 100% offline.
    - **Embeddings run locally** already in the MVP (sentence-transformers, model baked into the Docker image).
-4. **Language:** All code, documentation, database schemas, UI labels, status names, and system prompts must be written in **English**, while the document parser and AI modules must seamlessly process input documents written in **Polish** (or English). *(Open question: Polish UI labels for the officials/jury — see §10.)*
+4. **Language:** All code, documentation, database schemas, UI labels, status names, and system prompts must be written in **English**, while AI modules must seamlessly process input documents written in **Polish** (or English). *(Open question: Polish UI labels for the officials/jury — see §10.)*
 5. **Speed & Simplicity Priority:** Favor lightweight, zero-configuration, local-first tools over complex infrastructure.
 6. **Test data:** the team's test data is already anonymized, so sending it to the LLM API during the MVP is acceptable. Production sends nothing outside the city network.
 
@@ -21,7 +21,7 @@ We are building an **Intelligent Assistant for Public Officials** to handle **Ac
 ## 2. Scope
 
 ### IN SCOPE for Part 1 (Current Milestone)
-- **Document Upload & Parsing:** Uploading incoming UDIP requests in `.pdf` and `.docx` formats and extracting raw text.
+- **Document Upload** Uploading incoming UDIP requests in `.pdf` and `.docx` formats.
 - **AI Triage & Retrieval (Subteam B):**
   - Encoding the incoming request into vector embeddings (local model).
   - Hybrid search (dense + BM25) over the local archive of past requests/responses to surface top-$k$ similar cases.
@@ -51,7 +51,7 @@ Browser ─▶ Streamlit app (app/) ──(Python call)──▶ AIService (ai_s
 ```
 
 - **One Python process, one Docker container.** There is no HTTP between subteams: the Streamlit app imports the AI layer as a Python class behind a shared interface (§4).
-- **Subteam A (2 people):** Streamlit UI, registry, deadline engine, DB layer, document parser.
+- **Subteam A (2 people):** Streamlit UI, registry, deadline engine, DB layer.
 - **Subteam B (2 people):** `AIService` — LLM client, embeddings, vector store, hybrid retrieval, department routing, archive indexing.
 - **Why no HTTP:** with API-only LLMs there is no heavy local model to isolate, so an internal HTTP hop adds ports, serialization and "service down" states without benefit. A FastAPI wrapper over the same class can be added later if other clients appear.
 
@@ -90,26 +90,68 @@ To let both subteams work in parallel, **implement the `contracts/` package firs
 
 ### 5.1 Relational Database Schema (SQLModel + SQLite)
 
-```
-requests              id, seq_no, case_ref, year, received_date, deadline, extended_deadline,
-                      extension_notice_date, status, assignee_initials, topic_summary,
-                      applicant_name, applicant_contact, channel, response_date
-case_documents        id, request_id, kind (REQUEST | later: Part 2 kinds), filename, text, uploaded_at
-department_inquiries  id, request_id, department_code, sent_date, reply_date
-status_history        id, request_id, from_status, to_status, changed_by, changed_at
-audit_log             id, actor, action, entity, entity_id, at      (never stores document text)
-```
+Case
+  Id                int, PK
+  Topic             str, nullable - short summary of the request
+  CreatedDate       date - date the case was registered
+  ResponseDeadline  date - statutory response deadline (14 days or extended)
+  ResponseDate      date, nullable - date the response was sent
+  Status            CaseStatus - current stage of the case
+  ApplicationId     int, FK -> FileData.Id - original request file (FileType = APPLICATION)
+  ResponseId        int, FK -> FileData.Id, nullable - final response file (FileType = RESPONSE)
+  AssigneeId        int, FK -> User.Id, nullable - official handling the case
 
-Statuses (task description, operational step 11): `NEW` → `INQUIRIES_SENT` → `QUERY_EXTENDED` (+ days elapsed) → `RESPONSE_PREPARED` → `RESPONSE_SENT`. Consider a terminal `CLOSED_OTHER` (refusal decision, discontinued, forwarded).
+CaseHistory (full snapshot of Case on every change, never updated)
+  Id                int, PK
+  ChangeDate        datetime (UTC) - when the change happened
+  CaseId            int, FK -> Case.Id
+  Topic             str, nullable
+  CreatedDate       date
+  ResponseDeadline  date
+  ResponseDate      date, nullable
+  Status            CaseStatus
+  ApplicationId     int, FK -> FileData.Id
+  ResponseId        int, FK -> FileData.Id, nullable
+  AssigneeId        int, FK -> User.Id, nullable
+
+FileData (immutable once created)
+  Id                int, PK
+  Filename          str
+  CreatedDate       datetime (UTC) - upload or generation time
+  FileType          FileType - role of the file
+
+DepartmentRequest
+  Id                int, PK
+  CaseId            int, FK -> Case.Id
+  DepartmentId      int, FK -> Department.Id
+  RequestStatus     RequestStatus - state of the inquiry
+  RequestText       str - text of the inquiry sent to the department
+
+Department
+  Id                int, PK
+  Name              str
+  Responsibilities  str - scope of competence, used for routing suggestions
+
+User
+  Id                int, PK
+  Initials          str
+  FirstName         str
+  LastName          str
+
+ENUMS
+  CaseStatus     New, Processed, Request_Sent, Query, Response_Generated, Response_Sent
+  FileType       Application, Response
+  RequestStatus  Suggested, Sent, Completed
+
+RELATIONSHIPS
+  Case -> FileData           many-to-one, required (ApplicationId)
+  Case -> FileData           many-to-one, optional (ResponseId)
+  Case -> User               many-to-one, optional (AssigneeId)
+  CaseHistory -> Case        many-to-one (CaseId)
+  DepartmentRequest -> Case  many-to-one (CaseId)
+  DepartmentRequest -> Department  many-to-one (DepartmentId)
 
 Use one DB connection/session per thread or Streamlit session.
-
-### 5.2 Document Parser (`app/services/parser.py`)
-- Accept `.pdf` and `.docx` uploads via Streamlit.
-- Extract clean UTF-8 text (handling Polish diacritics: `ą, ć, ę, ł, ń, ó, ś, ź, ż`).
-- Return clear validation errors if a file is empty, scanned without OCR text, or unsupported.
-- Prefer permissively licensed parsers (pypdf, pdfplumber, python-docx) over AGPL ones (PyMuPDF).
-- Legacy `.doc` is not readable by `python-docx` — reject with a clear message (or convert via LibreOffice later).
 
 ### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested)
 - `deadline = received_date + 14 days` (art. 13 ust. 1 UDIP; the day of receipt is not counted).
@@ -120,7 +162,7 @@ Use one DB connection/session per thread or Streamlit session.
 
 ### 5.4 Streamlit UI Views (`app/ui/`)
 - **Calendar / Table** (`pages/calendar.py`): requests oldest → newest, year filter, deadline highlighting, status, days remaining, initials, sequence number, request ID, topic summary, dates.
-- **Upload & Triage** (`pages/intake.py`): upload → parse → `analyze_request` → show similar cases + suggested departments → official edits/confirms metadata → save.
+- **Upload & Triage** (`pages/intake.py`): upload (file is being parsed on the AI-side of the project) → `analyze_request` → show similar cases + suggested departments → official edits/confirms metadata → save.
 - **Case view** (`pages/case.py`): metadata, status changes (with history), department inquiries. Part 2 features plug in here later.
 - **Knowledge base** (`pages/knowledge_base.py`): upload archive cases / legislation → `ingest` (jury test 6, see §10).
 - Show `health()` status (LLM provider, archive size) in the sidebar.
@@ -186,7 +228,7 @@ Use one DB connection/session per thread or Streamlit session.
    - Create the skeleton from `project_structure_and_docker.md`: `pyproject.toml` (uv), `uv.lock`, `.env.example`, `.gitignore`, `.dockerignore`, `Dockerfile`, `compose.yaml`, `.streamlit/config.toml`.
    - Create `contracts/` (§4), `ai_service/factory.py`, `ai_service/mock.py`, and `data/departments.json`.
 2. **Step 2 — Parallel Development:**
-   - **Subteam A:** `app/db/`, `app/services/parser.py`, `app/services/deadlines.py`, `app/services/registry.py`, `app/services/ai.py`, Streamlit pages (Calendar/Table, Upload & Triage, Case view) working against `MockAIService`.
+   - **Subteam A:** `app/db/`, `app/services/deadlines.py`, `app/services/registry.py`, `app/services/ai.py`, Streamlit pages (Calendar/Table, Upload & Triage, Case view) working against `MockAIService`.
    - **Subteam B:** `ai_service/llm/`, `ai_service/embeddings/`, `ai_service/vector_store/`, `ai_service/retrieval/`, `ai_service/routing/`, `ai_service/ingestion/`, `ai_service/service.py`, `scripts/seed_all.py`, `scripts/reindex.py`, `scripts/download_models.py`.
 3. **Step 3 — Integration & End-to-End Smoke Test:**
    - Switch `AI_MOCK=0`; run natively (`uv run streamlit run app/ui/main.py`) and then via `docker compose up --build`.

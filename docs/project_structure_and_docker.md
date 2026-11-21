@@ -55,7 +55,6 @@ HackNation---ISA/
 │   │   ├── models.py         # SQLModel tables (first_part_engineering_plan.md §5.1)
 │   │   └── repository.py     # CRUD + queries (by year, by status, overdue)
 │   ├── services/
-│   │   ├── parser.py         # PDF/DOCX → text, validation errors
 │   │   ├── deadlines.py      # 14 days / 2 months / weekend+holiday shift, highlight level
 │   │   ├── registry.py       # case lifecycle, status transitions, audit log
 │   │   ├── exporter.py       # Part 2: final response → .docx / .txt
