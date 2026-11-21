@@ -33,6 +33,7 @@ class Department(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     responsibilities: str  # scope of competence, used for routing suggestions
+    code: str = Field(unique=True, index=True)  # short department code, e.g. "WGR"
 
     requests: list["DepartmentRequest"] = Relationship(back_populates="department")
 

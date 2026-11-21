@@ -1,6 +1,9 @@
 import streamlit as st
+from sqlmodel import Session, select
 from app.config import settings
-from app.db.engine import check_db_connection
+from app.db.engine import check_db_connection, init_db, engine
+from app.db.models import Department
+
 
 st.set_page_config(
     page_title="Intelligent Assistant (UDIP) - Bydgoszcz",
@@ -16,6 +19,9 @@ st.subheader("Step 1: Container & Host Storage Verification")
 
 # Ensure required storage folders exist
 settings.ensure_directories()
+
+# Create tables and seed departments once per process (cached across reruns)
+st.cache_resource(init_db)()
 
 # Check SQLite connection
 db_status = check_db_connection()

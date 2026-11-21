@@ -1,0 +1,147 @@
+[
+  {
+    "code": "WAB",
+    "name": "Wydział Administracji Budowlanej",
+    "responsibilities": "1) prowadzenie spraw z zakresu kształtowania i realizowania ładu architektonicznego miasta;\n2) wykonywanie czynności z zakresu administracji architektoniczno-budowlanej;\n3) zapewnianie zrównoważonego rozwoju przestrzennego Miasta;\n4) prowadzenie spraw z zakresu inicjatyw lokalnych w ramach programu „25/75”."
+  },
+  {
+    "code": "WE",
+    "name": "Wydział Edukacji i Sportu",
+    "responsibilities": "1) prowadzenie spraw związanych z organizacją i funkcjonowaniem przedszkoli, szkół podstawowych, ponadpodstawowych i innych placówek wychowawczo- edukacyjnych prowadzonych przez Miasto;\n2) współpraca z instytucjami rządowymi, samorządowymi i organizacjami pozarządowymi w tworzeniu właściwych warunków dydaktyczno- wychowawczych;\n3) prowadzenie ewidencji szkół i placówek niepublicznych oraz uczniowskich klubów sportowych;\n4) podejmowanie działań na rzecz rozwoju szkolnictwa wyższego i działalności naukowo-badawczej;\n5) prowadzenie spraw związanych z funkcjonowaniem, rozwojem i upowszechnianiem kultury fizycznej i sportu;\n6) sprawowanie nadzoru nad stowarzyszeniami kultury fizycznej i związkami sportowymi oraz spółkami prawa handlowego, w których Miasto posiada akcje/ udziały w zakresie sportu oraz nadzorowanie działalności uczniowskich klubów sportowych i stowarzyszeń kultury fizycznej nieprowadzących działalności gospodarczej;\n7) kontrola finansowo-księgowa i formalno-prawna placówek oświatowych i miejskich jednostek organizacyjnych;\n8) planowanie i nadzór nad realizacją budżetu Miasta w zakresie zadań oświatowych;\n9) obsługa merytoryczna i finansowa zadań oświatowych realizowanych ze środków budżetu państwa, organów administracji rządowej, funduszy celowych, innych jednostek samorządu terytorialnego i innych podmiotów;\n10) udzielanie i rozliczanie dotacji dla szkół i placówek niepublicznych;\n11) prowadzenie kontroli w zakresie działania niepublicznych jednostek oświatowych oraz jednostek organizacyjnych Miasta oraz prowadzenie postępowań administracyjnych w zakresie zwrotu dotacji."
+  },
+  {
+    "code": "WF",
+    "name": "Wydział Funduszy Europejskich",
+    "responsibilities": "1) monitoring źródeł dofinansowania z funduszy europejskich dla inwestycji i projektów społecznych Miasta,\n2) przekazywanie wydziałom Urzędu Miasta i miejskim jednostkom organizacyjnym informacji o możliwościach pozyskania dofinansowania,\n3) współpraca z wydziałami Urzędu Miasta i miejskimi jednostkami organizacyjnymi w zakresie projektów wspieranych z funduszy europejskich,\n4) składanie aplikacji o fundusze europejskie dla powierzonych projektów Miasta, koordynacja ich wdrażania i sprawozdawczość w okresie trwałości,\n5) rozliczanie powierzonych projektów Miasta dofinansowanych z funduszy europejskich,\n6) informacja zbiorcza na temat realizowanych przez Miasto projektów,\n7) koordynowanie prac związanych ze strategią rozwoju miasta i raportem o stanie gminy,\n8) monitoring sytuacji społeczno-gospodarczej miasta, w tym efektów projektów europejskich."
+  },
+  {
+    "code": "WGO",
+    "name": "Wydział Gospodarki Odpadami",
+    "responsibilities": "1) prowadzenie spraw związanych z funkcjonowaniem systemu gospodarowania odpadami komunalnymi w mieście Bydgoszczy,\n2) prowadzenie działań w zakresie usuwania odpadów z miejsc nieprzeznaczonych do ich składowania i magazynowania w rozumieniu ustawy z dnia 14 grudnia 2012 r. o odpadach wraz z jej zmianami i aktami wykonawczymi do tejże ustawy, będącymi własnością Gminy Bydgoszcz."
+  },
+  {
+    "code": "WI",
+    "name": "Wydział Informatyki",
+    "responsibilities": "1) informatyzacja Urzędu i zapewnienie ciągłości funkcjonowania systemów teleinformatycznych;\n2) opracowywanie planów rozwoju usług teleinformatycznych wspierających pracę poszczególnych komórek Urzędu;\n3) nadzorowanie i koordynowanie umów z dostawcami rozwiązań informatycznych;\n4) nadzorowanie i koordynowanie projektów teleinformatycznych;\n5) świadczenie usług informatycznych w ramach zawartych umów i porozumień;\n6) optymalizacja wykorzystania zasobów teleinformatycznych Urzędu dla zapewnienia wysokiej jakości świadczonych usług przy jednoczesnej minimalizacji kosztów;\n7) zapewnienie bezpieczeństwa danych przetwarzanych w systemach teleinformatycznych zarządzanych przez Wydział Informatyki zgodnie z wymaganiami prawa oraz zasadami wdrożonego Systemu Zarządzania Bezpieczeństwem Informacji."
+  },
+  {
+    "code": "WIM",
+    "name": "Wydział Inwestycji Miasta",
+    "responsibilities": "1) przygotowywanie miejskich inwestycji do realizacji i sprawowanie nadzoru inwestorskiego nad ich realizacją, z wyłączeniem inwestycji drogowych;\n2) współpraca z jednostkami organizacyjnymi Miasta w sprawach inwestycji, które są finansowane lub współfinansowane przez Miasto;\n3) opracowywanie korekt rocznych planów inwestycyjnych i pozostałych wieloletnich zadań majątkowych."
+  },
+  {
+    "code": "WK",
+    "name": "Wydział Księgowości",
+    "responsibilities": "1) obsługa finansowo-księgowa wydatków i niepodatkowych dochodów Urzędu Miasta oraz prowadzenie rozliczeń Miasta z tytułu podatków od towarów i usług,\n2) obsługa rozliczeń finansowo-księgowych IP FEdKP w ramach ZIT BydOF."
+  },
+  {
+    "code": "WMG",
+    "name": "Wydział Mienia i Geodezji",
+    "responsibilities": "1) prowadzenie spraw związanych z gospodarowaniem nieruchomościami będącymi własnością i współwłasnością Miasta i Skarbu Państwa;\n2) prowadzenie ewidencji majątku nieruchomego Miasta i Skarbu Państwa;\n3) sprawowanie nadzoru nad gospodarowaniem miejskim zasobem nieruchomości;\n4) prowadzenie katastru nieruchomości w zakresie części opisowej państwowego zasobu geodezyjnego i kartograficznego, w tym ewidencji gruntów i budynków oraz gleboznawczej klasyfikacji gruntów i spraw związanych z taksacją nieruchomości;\n5) prowadzenie ewidencji miejscowości, ulic i adresów;\n6) prowadzenie spraw nazewnictwa ulic i placów."
+  },
+  {
+    "code": "WOŚ",
+    "name": "Wydział Ochrony Środowiska",
+    "responsibilities": "1) koordynacja spraw związanych z realizacją Programu Ochrony Środowiska dla miasta Bydgoszczy oraz Planu Adaptacji miasta Bydgoszczy do zmian klimatu;\n2) wykonywanie zadań wynikających z ustawy – Prawo ochrony środowiska;\n3) wykonywanie zadań wynikających z ustawy o udostępnianiu informacji o środowisku i jego ochronie, udziale społeczeństwa w ochronie środowiska oraz o ocenach oddziaływania na środowisko;\n4) wykonywanie zadań wynikających z ustawy - Prawo geologiczne i górnicze;\n5) prowadzenie spraw związanych z gospodarką odpadami innymi niż komunalne;\n6) udzielanie dotacji celowej na dofinansowanie kosztów inwestycji z zakresu ochrony środowiska i gospodarki wodnej oraz jej rozliczanie;\n7) planowanie i rozliczanie dochodów z tytułu opłat i kar za korzystanie ze środowiska oraz wydatków finansowych z tych opłat."
+  },
+  {
+    "code": "WOA",
+    "name": "Wydział Organizacyjno-Administracyjny",
+    "responsibilities": "1) opracowywanie projektów statutu i regulaminów oraz innych dokumentów dotyczących funkcjonowania Urzędu;\n2) prowadzenie rejestru zarządzeń i poleceń Prezydenta oraz poleceń Sekretarza Miasta;\n3) nadzorowanie stosowania przepisów instrukcji kancelaryjnej w Urzędzie;\n4) przygotowywanie posiedzeń Kolegium Prezydenta Miasta;\n5) prowadzenie rejestrów pełnomocnictw i upoważnień udzielonych przez Prezydenta;\n6) prowadzenie spraw kadrowych i szkoleniowych pracowników Urzędu;\n7) prowadzenie spraw kadrowych kierowników jednostek organizacyjnych, z wyłączeniem kierowników przedszkoli, szkół i innych jednostek oświatowo-wychowawczych;\n8) prowadzenie spraw z zakresu służby przygotowawczej,\n9) prowadzenie spraw socjalnych pracowników Urzędu i uprawnionych członków ich rodzin oraz emerytów i rencistów- byłych pracowników Urzędu;\n10) prowadzenie ewidencji i nadzór nad terminowym załatwianiem interpelacji i zapytań radnych oraz wniosków komisji Rady Miasta;\n11) opracowywanie sprawozdań dla Rady Miasta z działalności Prezydenta we współpracy z innymi Wydziałami;\n12) realizacja zadań dotyczących organizacji i załatwiania skarg i wniosków mieszkańców;\n13) obsługa interesantów w zakresie kompleksowej informacji dotyczącej merytorycznej działalności jednostek organizacyjnych Urzędu;\n14) współudział w organizowaniu i przeprowadzaniu wyborów samorządowych, parlamentarnych i prezydenckich oraz referendów;\n15) administrowanie budynkami Urzędu;\n16) prowadzenie spraw finansowych związanych z utrzymaniem i funkcjonowaniem Urzędu;\n17) prowadzenie ewidencji środków trwałych i wyposażenia Urzędu;\n18) prowadzenie archiwum zakładowego,\n19) prowadzenie kancelarii – przyjmowanie i rejestracja korespondencji, zapewnienie obsługi pocztowej i kurierskiej oraz dostarczanie na terenie Miasta Bydgoszczy korespondencji Urzędu Miasta,\n20) obsługa głównego konta poczty elektronicznej Urzędu Miasta – urzad@um.bydgoszcz.pl oraz skrzynki elektronicznej ePUAP,\n21) realizacja zadań dotyczących petycji,\n22) obsługa ratuszowej infolinii 0800 800 404 oraz centrali telefonicznej Urzędu,\n23) prowadzenie spraw w zakresie administracyjnym związanych z Pracowniczymi Planami Kapitałowymi,\n24) zapewnienie obsługi w sekretariacie Zespołu Prawnego w trakcie nieobecności samodzielnego stanowiska ds. administracyjno-technicznych,\n25) zapewnienie bezpieczeństwa fizycznego budynków, pomieszczeń oraz dokumentów i zapisów przetwarzanych w formie papierowej oraz bezpieczeństwa osobowego zgodnie z wymaganiami prawa oraz zasadami wdrożonego Systemu Zarządzania Bezpieczeństwem Informacji.\n26) zarządzanie obiegiem dokumentów w systemie EZD w Urzędzie Miasta."
+  },
+  {
+    "code": "WPL",
+    "name": "Wydział Podatków i Opłat Lokalnych",
+    "responsibilities": "1) prowadzenie spraw dotyczących wymiaru podatków i opłat lokalnych oraz opłaty skarbowej;\n2) prowadzenie rachunkowości podatkowej;\n3) prowadzenie spraw w zakresie ulg w spłacie należności podatkowych oraz należności dla których organem podatkowym są urzędy skarbowe, a które stanowią dochody podatkowe budżetu Miasta;\n4) prowadzenie spraw związanych z pomocą publiczną w zakresie podatków i opłat lokalnych oraz sprawozdawczości z udzielonej pomocy publicznej w tym zakresie;\n5) wydawanie indywidualnych interpretacji w zakresie podatków i opłat lokalnych.\nPLATFORMA DO SKŁADANIA DEKLARACJI I INFORMACJI PODATKOWYCH ON-LINE W BYDGOSZCZY - PRZYJAZNE DEKLARACJE\nMiasto zachęca mieszkańców do skorzystania z platformy Przyjazne Deklaracje, dzięki której wypełnienie obowiązku podatkowego jest proste jak nigdy dotąd. Właściciele nieruchomości, roli, lasów oraz środków transportowych powyżej 3,5 t mogą przygotować deklaracje lub informacje on-line:\nna podatek od środków transportowych,\nna podatek od nieruchomości,\nna podatek rolny,\nna podatek leśny.\nPlatforma pomoże w wypełnieniu deklaracji lub informacji, wyjaśni trudne urzędowe pojęcia prostym i zrozumiałem językiem dla mieszkańca, automatycznie dobierze stawki, wygeneruje deklaracje wraz z załącznikami do PDF. Możesz wydrukować dokumenty podpisać odręcznie, wysłać pocztą lub doręczyć osobiście. Istnieje również możliwość złożenia dokumentów drogą elektroniczną podpisując je Profilem Zaufanym lub kwalifikowanym podpisem elektronicznym. Ze względu na wspólne bezpieczeństwo i oszczędność Twojego czasu jest to rekomendowana forma złożenia dokumentów do Urzędu.\nNumery telefonów Wydziału Podatków i Opłat Lokalnych"
+  },
+  {
+    "code": "WSO",
+    "name": "Wydział Spraw Obywatelskich",
+    "responsibilities": "1) prowadzenie spraw z zakresu ewidencji ludności;\n2) prowadzenie Rejestru Wyborców;\n3) współudział w organizowaniu i przeprowadzaniu wyborów i referendów;\n4) uchylony\n5) potwierdzanie profilu zaufanego e-PUAP;\n6) nakładanie świadczeń rzeczowych i osobistych na rzecz obrony;\n7) prowadzenie Akcji Kurierskiej polegającej na doręczaniu dokumentów powołania;\n8) prowadzenie spraw z zakresu powszechnego obowiązku obrony państwa;\n9) prowadzenie spraw z zakresu wydawania dowodów osobistych;\n10) udostępnianie danych osobowych ze zbioru kopert dowodowych;\n11) wydawanie zezwoleń na sprzedaż i spożywanie napojów alkoholowych;\n12) prowadzenie punktu przechowywania rzeczy znalezionych;\n13) prowadzenie spraw dotyczących imprez masowych, imprez powodujących utrudnienia w ruchu lub wymagających wykorzystania drogi w sposób szczególny oraz imprez artystycznych lub rozrywkowych;\n14) przyjmowanie zawiadomień o zgromadzeniach publicznych, z wyłączeniem zgromadzeń zgłoszonych w trybie art. 22 ustawy z dnia 24 lipca 2015r. Prawo o zgromadzeniach, a także ewentualne orzekanie o zakazie ich zorganizowania;\n15) sprawowanie nadzoru nad działalnością fundacji i stowarzyszeń, posiadających swoje siedziby na terenie Miasta, z wyłączeniem stowarzyszeń jednostek samorządu terytorialnego, klubów sportowych działających w formie stowarzyszeń, których statuty nie przewidują prowadzenia działalności gospodarczej, oraz uczniowskich klubów sportowych;\n16) prowadzenie spraw w zakresie udzielania pomocy finansowej z budżetu państwa repatriantom i pracodawcom tworzącym miejsca pracy dla repatriantów;\n17) wykonywanie obsługi techniczno-organizacyjnej stanowiska Miejskiego Rzecznika Konsumentów;\n18) przyjmowanie wniosków do CEIDG."
+  },
+  {
+    "code": "WSR",
+    "name": "Wydział Świadczeń Rodzinnych",
+    "responsibilities": "1) prowadzenie spraw związanych z dodatkami mieszkaniowymi i dodatkami energetycznymi;\n2) prowadzenie spraw związanych ze świadczeniami rodzinnymi i zasiłkami dla opiekunów;\n3) prowadzenie spraw związanych ze świadczeniami alimentacyjnymi;\n4) realizacja zadań wynikających z ustawy z dnia 11 lutego 2016r. o pomocy państwa w wychowywaniu dzieci oraz rozporządzeń wykonawczych;\n5) prowadzenie spraw związanych z pomocą materialną dla uczniów;\n6) realizacja zadania wynikającego z ustawy z dnia 4 listopada 2016 r. o wsparciu kobiet w ciąży i rodzin „Za życiem” dotyczącego ustalania prawa i wypłaty jednorazowego świadczenia z tytułu urodzenia dziecka, u którego zdiagnozowano ciężkie i nieodwracalne upośledzenia oraz nieuleczalną chorobę zagrażającą jego życiu, które powstały w prenatalnym okresie rozwoju dziecka lub w czasie porodu oraz rozporządzeń wykonawczych do tej ustawy."
+  },
+  {
+    "code": "WUK",
+    "name": "Wydział Uprawnień Komunikacyjnych",
+    "responsibilities": "1) dokonywanie rejestracji pojazdów;\n2) wydawanie praw jazdy;\n3) sprawowanie nadzoru nad stacjami kontroli pojazdów;\n4) sprawowanie nadzoru nad ośrodkami szkolenia kandydatów na Kierowców;\n5) udzielanie zezwoleń na wykonywanie zawodu przewoźnika drogowego osób, rzeczy; udzielanie licencji na wykonywanie krajowego transportu drogowego osób; udzielanie licencji na wykonywanie transportu drogowego w zakresie pośrednictwa przy przewozie rzeczy oraz wydawanie zaświadczeń na krajowy i niezarobkowy przewóz drogowy na potrzeby własne,\n6) prowadzenie spraw związanych z usuwaniem pojazdów z ulic Miasta Bydgoszczy oraz przechowywaniem ich na wyznaczonych parkingach."
+  },
+  {
+    "code": "WW",
+    "name": "Wydział Windykacji",
+    "responsibilities": "1) windykacja podatków i opłat lokalnych, opłat za gospodarowanie odpadami komunalnymi oraz niepodatkowych należności Miasta, powiatu i Skarbu Państwa;\n2) prowadzenie postępowań egzekucyjnych i egzekucji administracyjnej należności pieniężnych.\nWażne: Poczta e-mail nie służy do wyjaśniania zaległości. Prosimy o kontakt telefoniczny lub złożenie podania za pośrednictwem adresu do doręczeń elektronicznych (ADE) albo na piśmie. Szczegółowe informacje na temat ADE dostępne są na stronie https://www.gov.pl/web/e-doreczenia\nObowiązek informacyjny"
+  },
+  {
+    "code": "WZP",
+    "name": "Wydział Zamówień Publicznych",
+    "responsibilities": "1) kompleksowa obsługa Urzędu w zakresie realizacji ustawy Prawo zamówień publicznych;\n2) prowadzenie doradztwa i pomocy merytorycznej w sprawach zamówień publicznych."
+  },
+  {
+    "code": "WZB",
+    "name": "Wydział Zarządzania Budżetem Miasta",
+    "responsibilities": "1) planowanie budżetu Miasta i sporządzanie wieloletniej prognozy finansowej;\n2) zarządzanie płynnością budżetu;\n3) prowadzenie sprawozdawczości budżetowej i finansowej Miasta oraz ewidencji księgowej budżetu Miasta (organ).\n4) obsługa IP FEdKP w zakresie aktualizacji planu oraz przepływów finansowych związanych\nz projektami realizowanymi przez beneficjentów BydOF, w tym współpraca z IZ."
+  },
+  {
+    "code": "WZK",
+    "name": "Wydział Zarządzania Kryzysowego i Ochrony Ludności",
+    "responsibilities": "1) organizowanie, wykonywanie, finansowanie, koordynowanie, nadzorowanie, kontrolowanie przedsięwzięć na rzecz realizacji zadań obronnych, zarządzania kryzysowego, ochrony ludności i obrony cywilnej;\n2) opracowanie i wdrożenie kompleksowej dokumentacji planistycznej z zakresu obronności, zarządzania kryzysowego, ochrony ludności i obrony cywilnej;\n3) bieżące monitorowanie sytuacji w zakresie bezpieczeństwa miasta Bydgoszczy, inicjowanie i koordynowanie przedsięwzięć w reakcji na powstałe zagrożenia i ich skutki;\n4) realizacja zadań z zakresu ochrony przeciwpowodziowej miasta Bydgoszczy;\n5) zapewnienie nadzoru i kontroli w zakresie realizacji zadań ochrony przeciwpożarowej Urzędu Miasta Bydgoszczy oraz miejskich jednostkach organizacyjnych;\n6) organizowanie i bieżąca obsługa Komisji Bezpieczeństwa i Porządku dla Miasta Bydgoszczy i Powiatu Bydgoskiego oraz Bydgoskiego Zespołu Zarządzania Kryzysowego;\n7) prowadzenie spraw związanych z łowiectwem i organizacją odławiania, leczenia i rehabilitacji chorych i rannych zwierząt wolno żyjących (dzikich) oraz zwierząt gospodarskich niewłaściwie traktowanych przez właścicieli, a także zbierania i utylizowania martwych zwierząt;\n8) zapewnienie całodobowego funkcjonowania Bydgoskiego Centrum Zarządzania Kryzysowego oraz systemów technicznych, Monitoringu Wizyjnego Miasta, Centralnego Systemu Alarmowania Miasta oraz bazy magazynowej ochrony ludności, ochrony przeciwpowodziowej i zarządzania kryzysowego;\n9) uruchamianie na podstawie upoważnienia Prezydenta Miasta Bydgoszczy systemów alarmowych i ostrzegawczych w tym syren alarmowych zlokalizowanych na obszarze miasta Bydgoszczy i powiatu Bydgoskiego, w przypadku nagłego, bezpośredniego zagrożenia militarnego, katastrofą naturalną, awarią techniczną lub innym zagrożeniem, gdy zwłoka mogłaby zagrażać utratą życia lub zdrowia ludzi;\n10) wspieranie i obsługa finansowa Wodnego Ochotniczego Pogotowia Ratunkowego oraz Ochotniczej Straży Pożarnej;\n11) realizacja obowiązków związanych ze zgromadzeniami organizowanymi w trybie uproszczonym;\n12) sprawowanie w imieniu Prezydenta Miasta Bydgoszczy nadzoru merytorycznego nad Strażą Miejską oraz nadzoru Prezydenta Miasta Bydgoszczy nad Komendą Miejską Państwowej Straży Pożarnej oraz Komendy Miejskiej Policji."
+  },
+  {
+    "code": "WGK",
+    "name": "Wydział Zieleni i Gospodarki Komunalnej",
+    "responsibilities": "1) zapewnienie utrzymania należytego stanu sanitarno-porządkowego i technicznego infrastruktury miasta ze szczególnym uwzględnieniem jego oczyszczania;\n2) prowadzenie spraw w zakresie zieleni miejskiej i grobownictwa;\n3) prowadzenie i koordynowanie spraw w zakresie targowisk miejskich;\n4) prowadzenie spraw związanych z rybactwem śródlądowym oraz melioracjami wodnymi;\n5) podejmowanie działań na rzecz ochrony przyrody;\n6) prowadzenie spraw związanych z istnieniem na terenie miasta działalności rolniczej i leśnej;\n7) nadzór nad gospodarowaniem mieszkaniowym zasobem Miasta, który został powierzony jednostce zajmującej się zarządzaniem tym zasobem;\n8) kreowanie polityki mieszkaniowej poprzez przygotowanie aktów prawnych regulujących zasady przydzielania lokali mieszkalnych i gospodarowania zasobem dostosowując te działania do aktualnych potrzeb wynikających z sytuacji gospodarczej i społecznej Miasta."
+  },
+  {
+    "code": "BAS",
+    "name": "Biuro Aktywności Społecznej",
+    "responsibilities": "1) realizacja projektów promujących aktywność społeczną w ramach trzeciego sektora w zakresie wolontariatu, polityki senioralnej, promocji rodziny, polityki równościowej i wielokulturowości;\n2) prowadzenie Bydgoskiego Centrum Organizacji Pozarządowych „Gdańska 5”, Centrum Seniorów „Dworcowa 3” oraz Ogrodu Społecznika/Społeczniczki;\n3) obsługa organów doradczych samorządu działających w obszarze tematycznym aktywności społecznej;\n4) współpraca i wspieranie finansowe i pozafinansowe organizacji pozarządowych działających na terenie Bydgoszczy;\n5) realizacja programów społecznych;\n6) realizacja zadania „Urban Lab-Miasto dla Młodych” finansowanego ze środków Pomoc Techniczna dla Funduszy Europejskich 2021-2027."
+  },
+  {
+    "code": "BCB",
+    "name": "Biuro Cyfryzacji i Bezpieczeństwa Informacji",
+    "responsibilities": "1) zarządzanie, utrzymanie i rozwój systemu „Dbamy o Bydgoszcz” oraz Platformy Miejskiej, obejmujące nadzór nad ich funkcjonowaniem, współpracę z jednostkami i dostawcami, koordynację integracji i zmian, utrzymywanie treści i danych, obsługę zgłoszeń, analizę statystyk oraz przygotowywanie dokumentów, raportów i rekomendacji strategicznych,\n2) tworzenie, nadzorowanie i rozwój elektronicznych usług dla mieszkańców. Koordynacja integracji systemów świadczących elektroniczne usługi dla mieszkańców. Tworzenie strategii zdalnej, elektronicznej obsługi mieszkańców,\n3) komunikacja i współpraca z mieszkańcami oraz jednostkami miejskimi, obejmująca wsparcie użytkowników, prowadzenie działań informacyjnych, edukacyjnych i promocyjnych, rozpatrywanie reklamacji oraz inicjowanie działań usprawniających i rozwojowych w zakresie usług cyfrowych,\n4) koordynowanie systemów zarządzania bezpieczeństwem informacji i ciągłością działania, nadzorowanie ryzyka oraz zgodności regulacyjnej, realizacja zadań w obszarze lobbingu i przeciwdziałania praniu pieniędzy, a także przygotowywanie analiz, raportów i rekomendacji oraz wspieranie komórek organizacyjnych poprzez działania doskonalące i szkolenia,\n5) wspieranie Inspektora Ochrony Danych dla Urzędu Miasta Bydgoszczy oraz inspektorów ds. ochrony danych w publicznych jednostkach oświatowych Miasta Bydgoszczy."
+  },
+  {
+    "code": "BZS",
+    "name": "Biuro ds. Zdrowia i Polityki Społecznej",
+    "responsibilities": "1) koordynacja działań i realizacja polityki Miasta z obszaru zdrowia oraz określonych zagadnień społecznych;\n2) inicjowanie i realizacja przedsięwzięć prozdrowotnych dla mieszkańców miasta;\n3) określanie celów oraz przygotowywanie programów polityki zdrowotnej w oparciu o diagnozę sytuacji demograficzno-epidemiologicznej populacji miasta;\n4) prowadzenie i koordynacja całości działań wynikających z realizacji programów polityki zdrowotnej;\n5) współpraca z podmiotami i instytucjami działającymi na rzecz ochrony zdrowia i polityki społecznej, w tym w szczególności: Zakładem Opiekuńczo – Leczniczym, Bydgoskim Ośrodkiem Rehabilitacji, Terapii Uzależnień i Profilaktyki „BORPA”, Zespołem Żłobków Miejskich w Bydgoszczy, Miejskim Ośrodkiem Pomocy Społecznej, Zespołem Domów Pomocy Społecznej i Ośrodków Wsparcia, Bydgoskim Zespołem Placówek Opiekuńczo-Wychowawczych;\n6) realizacja działań na rzecz osób z niepełnosprawnościami i ze szczególnymi potrzebami;\n7) realizacja zadań wynikających z ustawy z dnia 19 lipca 2019 r. o zapewnieniu dostępności osobom ze szczególnymi potrzebami, w tym przygotowanie i koordynacja programu działań na rzecz osób z niepełnosprawnościami;\n8) realizacja zadania: przewóz indywidualny osób z niepełnosprawnościami dla mieszkańców Bydgoszczy;\n9) realizacja zadań wynikających z ustawy z dnia 4 lutego 2011 roku o opiece nad dziećmi w wieku do lat 3, w tym nadzór nad podmiotami prowadzącymi tego typu placówki;\n10) kontrola nad organizatorem rodzinnej pieczy zastępczej, rodzinami zastępczymi prowadzącymi rodzinne domy dziecka oraz placówkami opiekuńczo-wychowawczymi;\n11) kontrola nad podmiotami organizującymi pracę nad rodziną oraz placówkami wsparcia dziennego;\n12) realizacja i koordynacja zadań wynikających z ustawy z dnia 5 sierpnia 2015 r. o nieodpłatnej pomocy prawnej, nieodpłatnego poradnictwa obywatelskiego oraz edukacji prawnej."
+  },
+  {
+    "code": "BKS",
+    "name": "Biuro Komunikacji Społecznej",
+    "responsibilities": "1) udostępnianie informacji publicznej,\n2) prowadzenie strony podmiotowej Biuletynu Informacji Publicznej,\n3) realizowanie projektów kierowanych do mieszkańców Miasta,\n4) organizowanie obchodów, rocznic, uroczystości i świąt państwowych z udziałem Prezydenta,\n5) koordynacja konsultacji społecznych przeprowadzanych w ramach Regulaminu „Bydgoskie Konsultacje”,\n6) koordynacja programu Bydgoski Budżet Obywatelski,\n7) koordynacja edukacji ekologicznej."
+  },
+  {
+    "code": "BKZ",
+    "name": "Biuro Konserwatora Zabytków",
+    "responsibilities": "1) przygotowywanie i realizowanie zadań w dziedzinie ochrony zabytków i opieki nad zabytkami;\n2) prowadzenie gminnej ewidencji zabytków nieruchomych."
+  },
+  {
+    "code": "BKB",
+    "name": "Biuro Kultury Bydgoskiej",
+    "responsibilities": "1) kompleksowa realizacja ustawowych zadań samorządu w zakresie rozwoju i upowszechniania kultury;\n2) współpraca z bydgoskim środowiskiem twórczym, organizacjami pozarządowymi oraz innymi instytucjami realizującymi zadania z zakresu kultury."
+  },
+  {
+    "code": "BPR",
+    "name": "Biuro Prasowe",
+    "responsibilities": "Rzecznik Prasowy\nMarta Stachowiak\nul. Niedźwiedzia 4, 85-103 Bydgoszcz, pokój 307A\ntel. (52) 58 58 851\nfax: -\ne-mail: rzecznik@um.bydgoszcz.pl\nDo podstawowych zadań Biura Prasowego należy realizacja polityki informacyjnej Miasta."
+  },
+  {
+    "code": "BP",
+    "name": "Biuro Promocji Miasta i Współpracy z Zagranicą",
+    "responsibilities": "1) budowa wizerunku Miasta Bydgoszczy,\n2) koordynacja i nadzór nad wykonywaniem zadań z zakresu promocji Miasta realizowanych przez wydziały i jednostki organizacyjne Miasta,\n3) koordynacja współpracy międzynarodowej prowadzonej przez miasto Bydgoszcz."
+  },
+  {
+    "code": "BRM",
+    "name": "Biuro Rady Miasta",
+    "responsibilities": "1) obsługa organizacyjno-techniczna Rady i jej komisji\n2) współpraca z RO w przygotowaniu wyborów;\n3) przekazywanie uchwał Rady Miasta organom nadzoru;\n4) przekazywanie do ogłoszenia w wojewódzkim Dzienniku Urzędowym uchwał Rady Miasta podlegających ogłoszeniu oraz przekazywanie uchwał właściwym komórkom organizacyjnym Urzędu Miasta w celu umieszczenia w prasie lub na tablicy ogłoszeń;\n5) prowadzenie spraw związanych z nadawaniem Honorowego Obywatelstwa Miasta Bydgoszczy i Medalu Kazimierza Wielkiego za zasługi dla Miasta Bydgoszczy;\n6) ewidencja przepisów prawa miejscowego."
+  },
+  {
+    "code": "BZIT",
+    "name": "Biuro ZIT",
+    "responsibilities": "Dyrektor\nIzabela Szczesik-Zobek\nul. Jagiellońska 61, 85-027 Bydgoszcz\ntel. (52) 58 59 446\nfax: (52) 58 59 459\ne-mail: zit@um.bydgoszcz.pl\nDo podstawowych zadań Biura ZIT należy prowadzenie spraw związanych z wdrożeniem Zintegrowanych Inwestycji Terytorialnych na terenie Bydgoskiego Obszaru Funkcjonalnego.\nNazwy i oznaczenia prowadzonych rejestrów i archiwów:\n- Rejestr umów."
+  }
+]
