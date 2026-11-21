@@ -6,9 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    DATABASE_URL: str = "sqlite:////app/storage/app.db"
-    STORAGE_DIR: Path = Path("/app/storage")
-    FILES_DIR: Path = Path("/app/storage/files")
+    # Host-relative defaults for native runs; compose.yaml overrides them with /app/storage paths.
+    DATABASE_URL: str = "sqlite:///storage/app.db"
+    STORAGE_DIR: Path = Path("storage")
+    FILES_DIR: Path = Path("storage/files")
     AI_MOCK: int = 1
 
     @property

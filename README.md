@@ -93,7 +93,7 @@ uv run --env-file .env python scripts/extract_questions.py --text-only "<path>"
 Sample requests are kept locally in `.local/data/` (gitignored, not in the repo) — get them from the
 team.
 
-## Running with Docker (planned — available once the Docker setup is implemented)
+## Running with Docker
 
 ```bash
 cp .env.example .env        # set LLM_MODEL / GEMINI_API_KEY
@@ -101,4 +101,8 @@ docker compose up --build   # first build downloads models, takes several minute
 # open http://localhost:8501
 ```
 
-Reset to the initial demo state: `docker compose down -v && docker compose up`.
+Data (SQLite DB, uploaded files) is stored in `./storage` on the host. Reset to the initial demo
+state: `docker compose down`, delete everything in `storage/` except `.gitkeep`, then `docker compose up`.
+
+Running natively instead of Docker: `uv run --env-file .env streamlit run app/ui/main.py` (uses
+`./storage` as well).
