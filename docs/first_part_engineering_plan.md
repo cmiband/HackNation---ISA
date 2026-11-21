@@ -153,6 +153,13 @@ RELATIONSHIPS
 
 Use one DB connection/session per thread or Streamlit session.
 
+**Implemented** in `app/db/models.py`:
+- Python attributes are snake_case and map 1:1 to the names above (`ResponseDeadline` → `response_deadline`).
+- Tables are named `user`, `department`, `file_data`, `case`, `case_history` and `department_request`.
+- Enums are imported from `contracts.enums`.
+- ORM relationships: `Case.application`, `Case.response`, `Case.assignee`, `Case.history` and `Case.department_requests`.
+- `CaseHistory.snapshot(case)` builds a history row from a persisted case.
+
 ### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested)
 - `deadline = received_date + 14 days` (art. 13 ust. 1 UDIP; the day of receipt is not counted).
 - Extension (`QUERY_EXTENDED`): the applicant must be notified before the 14-day deadline; new deadline at most `received_date + 2 months` (art. 13 ust. 2 UDIP). Track both "notify by" and "respond by".
