@@ -4,3 +4,9 @@
 - read `docs/first_part_engineering_plan.md` (architecture, scope, contracts) and `docs/project_structure_and_docker.md` (folder skeleton, import rules, Docker) before implementing
 - the project structure may be adjusted slightly by any developer, but the overall skeleton, import rules and shared files must stay as described in `docs/project_structure_and_docker.md`
 - the anonymization module is separate and not designed yet
+- before every commit: `uv run pytest` must pass (all tests) and `uv run ruff check .` must report no errors; if anything fails, fix it first (`uv run ruff check --fix .` fixes most lint findings) — never commit failing tests or lint errors, never disable/skip tests or ruff rules just to make them pass
+- add or update tests for every new or changed module; tests must not call real LLM APIs (use Pydantic AI `TestModel` / `FunctionModel`, `models.ALLOW_MODEL_REQUESTS = False`)
+- never commit secrets or local data: `.env`, API keys, `.local/`, `storage/` contents; stage files by name (no `git add .` / `git add -A`) and check `git status` before committing
+- do not change shared files (`contracts/`, `pyproject.toml`, `uv.lock`, `Dockerfile`, `compose.yaml`, `AGENTS.md`) without the developer's explicit request; add dependencies only with `uv add`, never edit `uv.lock` by hand
+- the free-tier LLM quota is small (~20 requests per model per day): do not run real LLM calls in loops or bulk scripts without the developer's approval
+- do not modify code owned by the other subteam (see `docs/first_part_engineering_plan.md` §3) beyond trivial lint fixes; never rewrite git history that is already pushed (no force-push, no rebase of shared branches) unless the developer asks

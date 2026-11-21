@@ -1,5 +1,4 @@
 from app.config import settings
-from app.db.engine import check_db_connection
 
 
 def test_storage_paths():
