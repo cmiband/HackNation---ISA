@@ -85,13 +85,10 @@ HackNation---ISA/
 │   │   └── parser.py         # DocumentParser: PDF/DOCX bytes → text (pypdf, python-docx, LLM OCR)
 │   ├── embeddings/
 │   │   └── embedder.py       # sentence-transformers, model from EMBEDDING_MODEL
-│   ├── vector_store/         # swappable, see section 5
-│   │   ├── base.py           # VectorStore Protocol + VectorItem/VectorHit
-│   │   ├── lancedb_store.py  # default implementation (or chroma_store.py, …)
-│   │   └── __init__.py       # create_vector_store(settings) by VECTOR_BACKEND
-│   ├── retrieval/
-│   │   ├── lexical.py        # BM25 on lowercased tokens (backend-independent)
-│   │   └── similar_cases.py  # dense + BM25 → RRF fusion, year filter
+│   ├── vector_store/         # Qdrant, see section 5
+│   │   ├── config.py         # VectorStoreSettings (QDRANT_URL / QDRANT_PATH, collection, dense size)
+│   │   ├── types.py          # QuestionVectors, SparseVector, SimilarCaseHit, MatchedQuestion
+│   │   └── question_store.py # QuestionStore: upsert/delete case, hybrid search grouped by case_id
 │   ├── routing/
 │   │   ├── directory.py      # DepartmentDirectory: loads data/departments.json
 │   │   └── router.py         # DepartmentRouter: questions → department codes per question (LLM)
@@ -187,11 +184,14 @@ The real files are the source of truth: `Dockerfile`, `compose.yaml`, `.dockerig
 - `environment:` sets the container paths (`DATABASE_URL=sqlite:////app/storage/app.db`,
   `STORAGE_DIR`, `FILES_DIR`) and Streamlit server settings; these override `.env`.
 - Storage is a host bind mount: `${HOST_STORAGE_PATH:-./storage}:/app/storage`.
+- Service `qdrant` (vector DB, see §5): named volume `qdrant_storage`, `127.0.0.1:6333`, telemetry off,
+  healthcheck; `app` has `QDRANT_URL=http://qdrant:6333` and `depends_on: qdrant (service_healthy)`.
 
 ### 3.3 `.env.example`
 - Storage paths are host-relative (`storage/...`) for native runs (`uv run streamlit run app/ui/main.py`);
   Docker overrides them.
-- LLM settings (`LLM_MODEL`, `GEMINI_API_KEY`, …), `AI_MOCK`, retrieval settings, `PYDANTIC_AI_NO_BANNER`.
+- LLM settings (`LLM_MODEL`, `GEMINI_API_KEY`, …), `AI_MOCK`, `EMBEDDING_MODEL`, Qdrant settings
+  (`QDRANT_URL`, `QDRANT_PATH`, `QDRANT_COLLECTION`, `DENSE_VECTOR_SIZE`), `PYDANTIC_AI_NO_BANNER`.
 
 ### 3.4 `.dockerignore`
 - Excludes `.git`, `.venv`, `.env`, `storage/`, caches, `docs/`, `tests/`, and `.local/` (sample data
@@ -206,40 +206,36 @@ The real files are the source of truth: `Dockerfile`, `compose.yaml`, `.dockerig
 | What | Where | Lifetime |
 |------|-------|----------|
 | Code, `data/` seed files, models | image | rebuilt with `--build` |
-| SQLite DB, file archive (`files/`), vector index | host-mounted folder `storage/` | survives restarts and rebuilds; reset = empty `storage/` (keep `.gitkeep`) |
+| SQLite DB, file archive (`files/`) | host-mounted folder `storage/` | survives restarts and rebuilds; reset = empty `storage/` (keep `.gitkeep`) |
+| Vector index (Qdrant) | named volume `qdrant_storage` | survives restarts; reset = `docker compose down -v` |
 | API key | `.env` (gitignored) | never in the image or repo |
 
 First start: `bootstrap` sees an empty DB → runs `seed_all.py` → 10 test requests, archive and
 legislation indexed → Streamlit starts. Later starts skip seeding.
 
-## 5. Swappable vector DB
+## 5. Vector DB (Qdrant)
 
-The vector DB is an implementation detail of `ai_service`. Rules that keep it swappable:
+Decided: **Qdrant**, as a separate Compose service (official image `qdrant/qdrant:v1.20.2`).
 
-1. **Interface** in `ai_service/vector_store/base.py`:
-
-   ```python
-   class VectorStore(Protocol):
-       def upsert(self, collection: str, items: Sequence[VectorItem]) -> None: ...
-       def search(self, collection: str, vector: Sequence[float], k: int,
-                  filters: Mapping[str, Any] | None = None) -> list[VectorHit]: ...
-       def delete(self, collection: str, ids: Sequence[str]) -> None: ...
-       def count(self, collection: str) -> int: ...
-       def reset(self, collection: str) -> None: ...
-   ```
-
-2. **Embeddings are computed outside the store** (`embeddings/embedder.py`), so every backend receives
-   the same vectors.
-3. **BM25 and RRF fusion live in `retrieval/`**, not in the store, so hybrid search behaves the same on
-   any backend (a backend's native full-text search can be added later as an optimization).
-4. **The index is derived data.** SQLite + `data/` are the source of truth; `scripts/reindex.py` rebuilds
-   the index. Changing the backend = new `*_store.py` + `VECTOR_BACKEND=...` + reindex.
-5. `VectorItem` / `VectorHit` are internal to `ai_service` — not in `contracts/`, so Subteam A is
-   unaffected by any change.
-6. Prefer embedded backends (LanceDB, Chroma, Qdrant local mode, sqlite-vec): they stay inside the one
-   container. If a server DB is chosen (Qdrant server, Postgres + pgvector), add it as a second Compose
-   service with a healthcheck and `depends_on: condition: service_healthy`; the jury command stays the
-   same.
+- **Collection** `archive_questions`, one point per extracted question:
+  - named vectors: `dense` (cosine, `DENSE_VECTOR_SIZE` = 768 for `sdadas/mmlw-roberta-base`) and sparse
+    `bm25` (IDF modifier — Qdrant computes IDF);
+  - payload: `case_id` (= `Case.Id` in SQLite, payload index) and `question` — nothing else;
+  - point id: deterministic UUID from `case_id` + question position → re-upserting a case is idempotent.
+- **Search**: per query question a hybrid query (dense + BM25 prefetch, RRF fusion; dense-only if no sparse
+  vector), grouped by `case_id`, optional `exclude_case_id`; a case's score = its best match. The search is
+  over the whole collection (no year/department filters).
+- **Who computes vectors**: the embedder (`ai_service/embeddings/`, mmlw-roberta-base + BM25) — not the
+  store. The store only stores and searches vectors it is given.
+- **SQLite is the source of truth.** The collection is derived data: `QuestionStore.reset()` + re-upsert
+  from SQLite rebuilds it (ingestion/seeding).
+- **Modes** (same code): server via `QDRANT_URL` (Docker: `http://qdrant:6333`; native:
+  `http://localhost:6333` after `docker compose up -d qdrant`), or embedded local mode via `QDRANT_PATH`
+  when `QDRANT_URL` is empty (one process at a time — tests and quick checks only).
+- **Docker**: named volume `qdrant_storage` (the image runs as root), port `127.0.0.1:6333` for the REST
+  API and dashboard (`http://localhost:6333/dashboard`), telemetry off (`QDRANT__TELEMETRY_DISABLED`),
+  healthcheck on `/readyz` via bash (`/dev/tcp`; the image has no curl/wget); the app starts after Qdrant
+  is healthy.
 
 ## 6. Jury quickstart (goes into README.md)
 
@@ -251,8 +247,8 @@ docker compose up --build   # first build downloads models, takes several minute
 # open http://localhost:8501
 ```
 
-Reset to the initial demo state: `docker compose down`, delete everything in `storage/` except
-`.gitkeep`, then `docker compose up`.
+Reset to the initial demo state: `docker compose down -v` (removes the Qdrant volume), delete everything
+in `storage/` except `.gitkeep`, then `docker compose up`.
 
 ## 7. Risks and checks before submission
 

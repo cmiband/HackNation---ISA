@@ -19,6 +19,29 @@ services:
       DATABASE_URL: "sqlite:////app/storage/app.db"
       STORAGE_DIR: "/app/storage"
       FILES_DIR: "/app/storage/files"
+      QDRANT_URL: "http://qdrant:6333"
     volumes:
       - ${HOST_STORAGE_PATH:-./storage}:/app/storage
+    depends_on:
+      qdrant:
+        condition: service_healthy
     restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.2
+    ports:
+      - "127.0.0.1:6333:6333"   # REST API + dashboard (http://localhost:6333/dashboard), host only
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes:
+      - qdrant_storage:/qdrant/storage   # named volume: the image runs as root
+    healthcheck:
+      # the image has no curl/wget; use bash /dev/tcp against the readiness endpoint
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6333 && printf 'GET /readyz HTTP/1.0\r\n\r\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:
