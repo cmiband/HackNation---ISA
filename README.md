@@ -109,6 +109,20 @@ result.questions                           # -> list[str]
 
 Without an LLM (`LLM_PROVIDER=none` or no `LLM_MODEL`) the whole text is returned as one question.
 
+### Request summary (`ai_service/llm/`)
+
+One short description of the **whole** request (1–2 sentences, at most 300 characters, original language,
+no personal data) — for the case list / case view on the frontend (`Case.topic`).
+
+```python
+from ai_service.llm import RequestSummarizer
+
+summarizer = RequestSummarizer.from_env()   # create once and reuse (thread-safe)
+topic = summarizer.summarize(request_text)  # -> str, e.g. "Prośba o zestawienie liczby uczniów ..."
+```
+
+One LLM call per request. Without an LLM the beginning of the text is returned (cut to 300 characters).
+
 ### Document parser (`ai_service/parsing/`)
 
 Turns an uploaded request file into plain text. `.docx` and PDFs with a text layer are read locally;
@@ -167,7 +181,7 @@ back to dense-only. Tests use the embedded mode (`QdrantClient(":memory:")`), no
 ### Try it on sample requests
 
 ```bash
-# parse + extract questions (add --route for department suggestions)
+# parse + extract questions (add --route for department suggestions, --summary for the short description)
 uv run --env-file .env python scripts/extract_questions.py "<path to request.pdf or .docx>"
 # parser only (prints the extracted text)
 uv run --env-file .env python scripts/extract_questions.py --text-only "<path>"

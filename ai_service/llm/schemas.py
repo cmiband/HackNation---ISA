@@ -15,3 +15,18 @@ class RequestQuestions(BaseModel):
             "search."
         )
     )
+
+
+SUMMARY_MAX_CHARS = 300
+
+
+class RequestSummary(BaseModel):
+    """Short description of one whole request, shown to the official (e.g. as the case topic)."""
+
+    summary: str = Field(
+        max_length=SUMMARY_MAX_CHARS,
+        description=(
+            "One or two sentences (at most 300 characters) describing what the applicant asks for, in the "
+            "language of the original request (usually Polish). No greetings, no personal data."
+        ),
+    )

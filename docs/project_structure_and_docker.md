@@ -81,6 +81,7 @@ HackNation---ISA/
 │   │   ├── model_factory.py  # Pydantic AI model: "<provider>:<model>" or OpenAI-compatible base URL
 │   │   ├── schemas.py        # structured outputs (RequestQuestions)
 │   │   ├── question_extraction.py  # QuestionExtractor: request text → self-contained questions
+│   │   ├── summarization.py  # RequestSummarizer: whole request → short description (≤ 300 chars)
 │   │   ├── ocr.py            # LLMOcr: scanned PDF → text via multimodal LLM
 │   │   └── prompts/          # prompt templates (*.md)
 │   ├── parsing/
