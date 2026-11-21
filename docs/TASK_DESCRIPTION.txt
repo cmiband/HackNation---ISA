@@ -1,0 +1,203 @@
+HACKATHON CHALLENGE:
+
+Intelligent Assistant for Public Officials
+
+A Public Information Access (PIA) Response Generator with a Request Calendar (Organizer)
+
+Every day, public offices receive dozens of requests for access to public information from residents, activists, and journalists. While this right is a vital component of democracy, for public officials, it often translates into hundreds of hours spent manually searching through archives, verifying Public Information Bulletin (BIP) pages, and drafting repetitive documents from scratch.
+
+It’s time for a change! The task for Hacknation participants is to develop a simple, secure application that reduces the time required to prepare a response—from several days down to just a few minutes—thereby streamlining daily work in public administration.
+
+2. The Challenge
+
+The challenge at Hacknation is clear: create a tool to assist public officials in handling requests for access to public information at the Bydgoszcz City Hall. In short, this means a request calendar with deadlines, a response-generation module, and a data anonymization module.
+
+Your prototype must meet the following key requirements:
+
+1. AI Model and Environment: For the purpose of this challenge (during Hacknation), you may use open AI models; however, the final application must be designed to operate on a closed model—without internet access—with the capability to learn from the data being processed (e.g., legislation, legislative updates, requests, responses, etc.).
+
+2. File/Document Upload: Input data will be provided manually by the official handling the requests (by uploading files in formats such as PDF or Word). 
+
+3. Request Calendar: The program must include a table integrated with a calendar, listing requests from oldest to newest and tracking the number of days remaining to send a response to the applicant. Requests requiring a response on the current day or the preceding day may be highlighted accordingly. Additional features may include: response in preparation, query (i.e., extra time allocated for preparing a response), response sent, initials of the staff member handling the request, sequence number, request ID, a field for a brief summary of the request topic, date of receipt, response deadline, and date of response. Users should also be able to select and view requests for a specific year.
+
+4. Anonymization: The system should include a module that suggests which data in a drafted response should be anonymized—for example, by highlighting specific text in gray, which then turns black once approved by the official. The program will propose and subsequently automatically redact any extraneous data (such as personal information).
+
+4. Automation: Automation of routine, repetitive tasks.
+
+5. Archive Search: A search function for the database of past responses, enabling the easy retrieval of similar requests from the past.
+
+6. Path Guidance: Suggestions for the official regarding the most efficient process for obtaining responses from specific municipal or administrative departments.
+
+7. Draft Response Preparation: Once the official uploads files containing input from various departments, the program will generate a draft document, which the official must then review (to ensure accuracy and prevent AI-generated errors or "hallucinations"). 
+
+9. No automatic dispatch: The program will not send anything on its own—neither to internal departments nor to external recipients.
+
+10. Comprehensive support: The program is designed not only to assist in decision-making but also to generate draft responses, anonymize data, and—via an application calendar—help officials provide timely responses.
+
+11. No integration: There is no requirement for integration with any other official system (including the SIDAS system).
+
+12. Auxiliary tool: The program serves solely as a support tool; the final decision is always made by an official. 
+
+Simplified operational guide for the tool:
+
+1. The tool "learns" by ingesting current legislation, archived responses to requests, administrative orders, etc.
+
+2. A staff member uploads a file (PDF or Word) containing a request for public information.
+
+3. The tool analyzes the request and displays a list of similar requests received over the past year.
+
+4. The tool suggests relevant departments to which the staff member should send a request for the preparation of a response (list of Bydgoszcz City Hall departments: https://bip.um.bydgoszcz.pl/artykuly/198/wydzialy; offices: https://bip.um.bydgoszcz.pl/artykuly/1158/biura).
+
+5. The request is added to the registry; the staff member verifies the captured data (deadline, initials, dates, request number, etc.).
+
+6. (Outside the tool) Responses are received from the various departments; the staff member uploads them into the tool within the specific case/request file.
+
+7. Based on the uploaded responses, the tool generates a draft reply, highlighting sections that may require anonymization.
+
+8. The staff member confirms the proposed anonymization or deselects text that should not be hidden.
+
+9. The tool generates the final response as a .doc or .txt file.
+
+10. The staff member reviews the content of the response and makes any necessary corrections. 
+
+11. The tool updates the status of a given case at every stage—for example: a) no action taken, b) inquiries sent to departments, c) research/query in progress + number of days elapsed, d) response prepared, e) response sent to the applicant.
+
+
+
+We do not impose any specific technology or format—we are counting on your creativity and innovative thinking to surprise both us and the municipal officials, opening up an entirely new dimension of digital administration.
+
+
+3. Expected Outcome
+
+
+
+We expect an innovative, fully functional digital prototype that will transform the processing of UDIP (Access to Public Information) requests at the Bydgoszcz City Hall into a fast, semi-automated, and secure workflow, supported by artificial intelligence or other technologies.
+
+
+
+The primary target audience consists of the officials who handle UDIP requests; for them, the system should serve as a convenient assistant in their daily work. Ultimately, the solution should streamline the operations of the entire municipal office and improve the quality of service provided to residents.
+
+
+
+The benefits for Bydgoszcz include significant time savings for staff, the alleviation of routine tasks, a strong focus on personal data protection, and the positioning of the city as a hub for innovation. We do not mandate any specific technology—what matters is creativity and the "wow" factor.
+
+
+
+4. Formal Requirements – Rules of Participation and Project Presentation
+
+
+
+Participants (teams) taking on the Hacknation challenge must prepare and showcase their solution in two main formats:
+
+a) Prototype Presentation: Please create a video (maximum 3 minutes long) that demonstrates your project.
+
+b) Presentation: A slide deck of no more than 10 slides.
+
+
+
+What your presentation must include:
+
+1. Introduction: The name of your project and the members of your team. 2. What you are solving: A description of the problem you are addressing (how your software accelerates the work of a public official and protects personal data) and why this idea is significant.
+
+3. The concept: A detailed description of how your solution functions (how it searches through archived cases, anonymizes data, and manages a calendar of requests) and the technology it employs.
+
+4. How it works: A short video or presentation demonstrating your prototype in action (e.g., uploading a PDF/Word file, processing it, and generating a draft response).
+
+5. Target audience: Who the solution is intended for—in this case, local government officials (JST officials).
+
+6. Future outlook: A vision for how this solution could be implemented on a permanent basis within the Bydgoszcz City Hall.
+
+7. Tools: A list of the primary software and tools you utilized.
+
+8. A statement on whether the prototype can operate within a closed system—without Internet access or reliance on large language models—including a proposal for a specific model capable of functioning in such an isolated environment.
+
+
+
+The highest-rated teams will be those whose solutions are entirely novel, highly inventive, secure, and possess the potential for practical implementation in Bydgoszcz.
+
+
+
+5. Technical requirements
+
+
+
+It is essential that your concept is not only well-designed but also feasible to develop within the limited timeframe of the Hacknation event.
+
+
+
+Technical requirements and feasibility: Your solution must be user-friendly for any public official. The prototype should be able to efficiently ingest an uploaded file (PDF or Word), search a local database, suggest the appropriate department, and—once data is entered—generate a draft response while anonymizing the information. The application calendar should display 10 test submissions, ordered from oldest to newest, and highlight those that require a response as a priority.
+
+
+
+You are not required to use complex technologies, but your prototype must be stable and function reliably. Remember that this is a project intended for demonstration, not merely a conceptual plan. We will evaluate whether your solution is realistically achievable within the timeframe of the competition and whether the technology employed is accessible and cost-effective.
+
+
+
+Security and deployability (future use): While you may use open AI solutions when developing your prototype for Hacknation—given that you will be working with test submissions containing no real-world data—your concept must account for the fact that, in a municipal environment, the application will ultimately operate entirely locally, without Internet access, to ensure the complete security of personal data.
+
+
+
+The project must be secure; it must not expose users or the city to data leaks. It must also be "deployment-ready"—meaning it can be easily installed and launched in Bydgoszcz. Furthermore, it must be scalable, performing effectively not just for individual cases, but also when handling hundreds of archived documents. It is crucial to consider how Bydgoszcz could utilize your solution over the long term.
+
+
+
+6. Testing and/or validation method. How will the jury evaluate your project? Prototype Evaluation: The jury will personally test how your prototype functions in practice:
+
+1. They will upload a sample application file (in PDF or Word format) to verify whether the program correctly identifies similar cases within the archive.
+
+2. They will check whether the program accurately drafts a response document once the input from the relevant department is provided.
+
+3. They will conduct an anonymization test—uploading a file containing personal data to see if the program effectively masks that information.
+
+4. They will assess whether the solution is user-friendly, stable, and genuinely helpful to public officials. At this stage, they will also evaluate the technical feasibility of the project—specifically, whether it is actually implementable for use in the real world.
+
+5. The jury will examine how the list of requests is organized within the calendar, as well as the design of the solutions—for instance, how the tool highlights requests that require a response by a specific deadline, and how it indicates the current processing stage of a request by an official.
+
+6. The jury will evaluate the process and ease of uploading data, updating legal regulations, and managing archived responses.
+
+To assist you in working on your project, we are providing access to the necessary materials and test data:
+
+• Sample test materials: templates for inquiries (under the Act on Access to Public Information – UDIP) and responses, as well as a working visualization of a table/calendar for tracking requests—these will be made available via a QR code on the day Hacknation begins. Mentors will provide access to them.
+
+• Mentors from the Bydgoszcz City Hall (UMB), specializing in communication and official administrative procedures, will be on-site.
+
+• Potential data sources and municipal services:
+
+• The Public Information Bulletin (BIP) of the City of Bydgoszcz.
+
+• Link to the Code of Administrative Procedure (KPA): https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=wdu19600300168
+
+• Link to the Act on Access to Public Information (UDIP): https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=wdu20011121198
+
+These resources will allow you to focus on innovative coding and development, rather than searching for basic information.
+
+8. Evaluation Criteria
+
+Example criteria:
+- Relevance to the challenge (alignment with the stated objectives): 30%. - Security and effective data anonymization: 20%
+- Ease of use and usability for public officials: 20%
+- Completeness and quality of the functional prototype: 30%
+
+
+
+9. Additional notes / implementation context
+
+
+
+The City of Bydgoszcz states that the most interesting and promising solutions developed during Hacknation will be considered for implementation and further development.
+
+
+
+10. Contact
+
+
+
+Throughout the challenge, the following individuals will be available to assist participants:
+
+• A representative from the Social Communication Office
+
+• A representative from the Bydgoszcz City Council Office
+
+
+
+These experts can be met at the Bydgoszcz booth or contacted via a dedicated Discord channel.

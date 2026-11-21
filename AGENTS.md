@@ -1,0 +1,2 @@
+- after each task done check the documentation and update it
+- our team consists of 4 members and we take part in a 24-hour hackathon and we are quickly building a MVP 
