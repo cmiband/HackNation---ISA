@@ -131,6 +131,7 @@ Department
   Id                int, PK
   Name              str
   Responsibilities  str - scope of competence, used for routing suggestions
+  Code              str
 
 User
   Id                int, PK
@@ -152,6 +153,24 @@ RELATIONSHIPS
   DepartmentRequest -> Department  many-to-one (DepartmentId)
 
 Use one DB connection/session per thread or Streamlit session.
+
+**Implemented** in `app/db/models.py`:
+- Python attributes are snake_case and map 1:1 to the names above (`ResponseDeadline` → `response_deadline`).
+- Tables are named `user`, `department`, `file_data`, `case`, `case_history` and `department_request`.
+- Enums are imported from `contracts.enums`.
+- ORM relationships: `Case.application`, `Case.response`, `Case.assignee`, `Case.history` and `Case.department_requests`.
+- `CaseHistory.snapshot(case)` builds a history row from a persisted case.
+
+**Implemented** in `app/db/repository.py` (each class takes a `Session`; every write commits and refreshes):
+- `CaseRepository`: `add`, `add_with_application`, `add_all`, `update`, `get_cases_by_assignee_id`, `get_case_by_id`.
+  - `add_with_application(case, application)` inserts a new `Case` and its unsaved `FileData` (`FileType.APPLICATION`) in one transaction. It links them through `Case.application`, so `application_id` is filled at insert time.
+- `DepartmentRepository`: `add`, `get_by_id`, `load_departments`.
+  - `load_departments()` seeds the `department` table from `app/db/departments_responsibilities.json` (`code`, `name`, `responsibilities`), but only when the table is empty.
+- `app/db/engine.py::init_db()` creates all tables (`SQLModel.metadata.create_all`) and calls `load_departments()`. It is idempotent. `app/ui/main.py` calls it once per process through `st.cache_resource`, so both Docker and native runs set up the DB on start.
+- `FileDataRepository`: `add`, `add_all`, `get_by_id`.
+- `DepartmentRequestRepository`: `add`, `update`, `get_by_id`, `get_dep_requests_by_case_id`.
+- `CaseHistoryRepository`: `add`.
+- Repositories do no business logic. `app/services/registry.py` writes a `CaseHistory.snapshot` after each `Case` change.
 
 ### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested)
 - `deadline = received_date + 14 days` (art. 13 ust. 1 UDIP; the day of receipt is not counted).

@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlmodel import Session, create_engine
-
 from app.config import settings
 
 # SQLite connection args for multithreaded Streamlit usage
@@ -13,6 +12,18 @@ engine = create_engine(settings.DATABASE_URL, echo=False, connect_args=connect_a
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+def init_db() -> None:
+    """Create all tables and seed departments if the table is empty. Idempotent."""
+    # Local imports: models must be registered on SQLModel.metadata before create_all.
+    from app.db import models  # noqa: F401
+    from app.db.repository import DepartmentRepository
+
+    settings.ensure_directories()
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        DepartmentRepository(session).load_departments()
 
 
 def check_db_connection() -> dict[str, str | bool]:

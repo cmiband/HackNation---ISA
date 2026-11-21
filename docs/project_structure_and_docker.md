@@ -53,7 +53,8 @@ HackNation---ISA/
 │   ├── db/
 │   │   ├── engine.py         # SQLite engine/session (one connection per thread)
 │   │   ├── models.py         # SQLModel tables (first_part_engineering_plan.md §5.1)
-│   │   └── repository.py     # CRUD + queries (by year, by status, overdue)
+│   │   ├── repository.py     # one repository class per table (CRUD + queries; more queries by year, status, overdue to come)
+│   │   └── departments_responsibilities.json  # seed data: list of {code, name, responsibilities} per department; loaded by DepartmentRepository.load_departments() from init_db() only when the department table is empty
 │   ├── services/
 │   │   ├── deadlines.py      # 14 days / 2 months / weekend+holiday shift, highlight level
 │   │   ├── registry.py       # case lifecycle, status transitions, audit log
