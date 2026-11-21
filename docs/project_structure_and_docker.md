@@ -79,7 +79,10 @@ HackNation---ISA/
 │   │   ├── model_factory.py  # Pydantic AI model: "<provider>:<model>" or OpenAI-compatible base URL
 │   │   ├── schemas.py        # structured outputs (RequestQuestions)
 │   │   ├── question_extraction.py  # QuestionExtractor: request text → self-contained questions
+│   │   ├── ocr.py            # LLMOcr: scanned PDF → text via multimodal LLM
 │   │   └── prompts/          # prompt templates (*.md)
+│   ├── parsing/
+│   │   └── parser.py         # DocumentParser: PDF/DOCX bytes → text (pypdf, python-docx, LLM OCR)
 │   ├── embeddings/
 │   │   └── embedder.py       # sentence-transformers, model from EMBEDDING_MODEL
 │   ├── vector_store/         # swappable, see section 5
@@ -115,12 +118,13 @@ HackNation---ISA/
 │   ├── download_models.py    # used by Dockerfile to bake models into the image
 │   └── generate_synthetic_archive.py   # optional: LLM-generated test archive
 │
-├── storage/                  # gitignored runtime state (Docker volume): udip.db, vectors/, exports/
+├── storage/                  # gitignored runtime state (host bind mount): app.db, files/, vectors/
 │
 └── tests/
     ├── contracts/test_mock_conforms.py   # MockAIService & AIService satisfy the Protocol
     ├── app/test_deadlines.py
-    └── ai_service/test_question_extraction.py
+    ├── ai_service/test_question_extraction.py
+    └── ai_service/test_parser.py
 ```
 
 ### Import rules
@@ -159,126 +163,46 @@ Dependencies to pin:
 One image, one service (the app is a single process). Devs work natively (`uv sync`,
 `uv run streamlit run app/ui/main.py`); Docker is for integration testing and the jury.
 
-### 3.1 `Dockerfile` (draft)
+The real files are the source of truth: `Dockerfile`, `compose.yaml`, `.dockerignore`, `.env.example`,
+`.streamlit/config.toml` in the repo root. Key points:
 
-```dockerfile
-# syntax=docker/dockerfile:1
-FROM python:3.13-slim
+### 3.1 `Dockerfile`
+- Base `python:3.12-slim` (matches `.python-version`); uv installed with pip, pinned to the team's version.
+- Layers: dependencies only (`uv sync --frozen --no-install-project`, cached until `uv.lock` /
+  `pyproject.toml` change) → `scripts/download_models.py` (bakes the embedding model; stub for now) →
+  project code + `uv sync --locked`.
+- `HEALTHCHECK` on `/_stcore/health`; entrypoint `python -m app.bootstrap` (Python, not a shell script —
+  no CRLF / executable-bit problems on Windows clones). `bootstrap` prepares storage, checks the DB, then
+  `os.execvp` into `streamlit run app/ui/main.py`.
+- Runs as root for now: with the host bind mount, a fixed non-root UID would fail to write to `./storage`
+  on Linux hosts whose user UID differs. Revisit if needed (e.g. `user:` in compose).
 
-# Pin to the uv version the team uses locally (`uv --version`)
-COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /uvx /bin/
-
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_NO_DEV=1 \
-    HF_HOME=/models/hf \
-    PATH="/app/.venv/bin:$PATH"
-
-# curl is only needed for the HEALTHCHECK
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# 1) Dependencies only — cached until uv.lock / pyproject.toml change
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project
-
-# 2) Bake the embedding model into the image — cached until the script changes
-COPY scripts/download_models.py scripts/download_models.py
-RUN python scripts/download_models.py
-
-# 3) Project code
-COPY . .
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
-
-# Run as non-root; storage/ becomes the named volume
-RUN useradd --create-home appuser \
-    && mkdir -p /app/storage && chown -R appuser /app/storage
-USER appuser
-
-# From here on, never download models at runtime
-ENV HF_HUB_OFFLINE=1
-
-EXPOSE 8501
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
-CMD ["python", "-m", "app.bootstrap"]
-```
-
-`app/bootstrap.py`: run the seeding (`--if-empty`), then `os.execvp` into
-`streamlit run app/ui/main.py`. A Python entrypoint avoids shell-script problems with CRLF line
-endings and missing executable bits when the repo is cloned on Windows.
-
-### 3.2 `compose.yaml` (draft)
-
-```yaml
-name: udip-assistant
-
-services:
-  app:
-    build: .
-    image: udip-assistant:local
-    ports:
-      - "127.0.0.1:8501:8501"      # reachable only from the host machine
-    env_file:
-      - path: .env
-        required: false            # app still starts without .env (LLM_PROVIDER=none)
-    environment:
-      STREAMLIT_SERVER_HEADLESS: "true"
-      STREAMLIT_SERVER_ADDRESS: "0.0.0.0"   # inside the container; the host port binding limits exposure
-      STREAMLIT_SERVER_PORT: "8501"
-      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
-      DATABASE_URL: "sqlite:////app/storage/app.db"
-      STORAGE_DIR: "/app/storage"
-      FILES_DIR: "/app/storage/files"
-    volumes:
-      - ${HOST_STORAGE_PATH:-./storage}:/app/storage
-    restart: unless-stopped
-```
-
-Check the `env_file` long syntax with `required: false` against the Compose docs and the Compose
-version on the team's machines; if unsupported, ship `.env` defaults through `environment:` instead.
+### 3.2 `compose.yaml`
+- One service `app`, port `127.0.0.1:8501:8501` (host machine only).
+- `env_file: .env` with `required: false` → the app starts without `.env`.
+- `environment:` sets the container paths (`DATABASE_URL=sqlite:////app/storage/app.db`,
+  `STORAGE_DIR`, `FILES_DIR`) and Streamlit server settings; these override `.env`.
+- Storage is a host bind mount: `${HOST_STORAGE_PATH:-./storage}:/app/storage`.
 
 ### 3.3 `.env.example`
-
-```dotenv
-# LLM (cloud API in the MVP). LLM_PROVIDER=none = deterministic mode, no API key needed.
-LLM_PROVIDER=
-LLM_MODEL=google:gemini-3.6-flash   # Pydantic AI string "<provider>:<model>"
-GEMINI_API_KEY=                # Google first; or OPENAI_API_KEY / ANTHROPIC_API_KEY, per provider
-LLM_BASE_URL=                  # optional OpenAI-compatible endpoint (Ollama/vLLM); then LLM_MODEL = plain name
-LLM_API_KEY=
-
-# Development
-AI_MOCK=0                      # 1 = MockAIService (Subteam A works without Subteam B)
-
-# Retrieval
-EMBEDDING_MODEL=intfloat/multilingual-e5-base
-VECTOR_BACKEND=lancedb
-```
+- Storage paths are host-relative (`storage/...`) for native runs (`uv run streamlit run app/ui/main.py`);
+  Docker overrides them.
+- LLM settings (`LLM_MODEL`, `GEMINI_API_KEY`, …), `AI_MOCK`, retrieval settings, `PYDANTIC_AI_NO_BANNER`.
 
 ### 3.4 `.dockerignore`
+- Excludes `.git`, `.venv`, `.env`, `storage/`, caches, `docs/`, `tests/`, and `.local/` (sample data
+  must never end up in the image), `.claude/`, `.idea/`, `.vscode/`.
 
-```
-.git
-.venv
-.env
-storage/
-**/__pycache__
-.pytest_cache
-docs/
-tests/
-```
+### 3.5 `.streamlit/config.toml`
+- Usage stats off, upload limit 50 MB, theme. `address = "localhost"` for native runs; Docker sets
+  `STREAMLIT_SERVER_ADDRESS=0.0.0.0` (env vars override config.toml).
 
 ## 4. Runtime data flow
 
 | What | Where | Lifetime |
 |------|-------|----------|
 | Code, `data/` seed files, models | image | rebuilt with `--build` |
-| SQLite DB, file archive (`files/`), vector index | host-mounted folder `storage/` | survives restarts; host inspection direct |
+| SQLite DB, file archive (`files/`), vector index | host-mounted folder `storage/` | survives restarts and rebuilds; reset = empty `storage/` (keep `.gitkeep`) |
 | API key | `.env` (gitignored) | never in the image or repo |
 
 First start: `bootstrap` sees an empty DB → runs `seed_all.py` → 10 test requests, archive and
@@ -323,7 +247,8 @@ docker compose up --build   # first build downloads models, takes several minute
 # open http://localhost:8501
 ```
 
-Reset to the initial demo state: `docker compose down -v && docker compose up`.
+Reset to the initial demo state: `docker compose down`, delete everything in `storage/` except
+`.gitkeep`, then `docker compose up`.
 
 ## 7. Risks and checks before submission
 
