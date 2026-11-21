@@ -22,7 +22,10 @@ git pull
 uv sync                     # creates .venv and installs all dependencies from uv.lock
 cp .env.example .env        # first time only; then fill in the API key (see below)
 uv run pytest               # all tests must pass (no API calls are made in tests)
+uv run ruff check .         # lint; `uv run ruff check --fix .` fixes most findings automatically
 ```
+
+**Before every commit:** `uv run pytest` and `uv run ruff check .` must both pass.
 
 After every `git pull` run `uv sync` again — someone may have added dependencies.
 
@@ -35,9 +38,15 @@ and run `uv lock`.
 The MVP uses a cloud LLM through [Pydantic AI](https://ai.pydantic.dev/). We start with Google Gemini:
 
 ```dotenv
-LLM_MODEL=google:gemini-3.6-flash
+LLM_MODEL=google:gemini-3.6-flash,google:gemini-3.8-flash,google:gemini-3.7-flash,google:gemini-3.5-flash,google:gemini-3-flash-preview,google:gemini-2.5-flash,google:gemini-3.5-flash-lite,google:gemini-3.1-flash-lite
 GEMINI_API_KEY=<your key>
 ```
+
+`LLM_MODEL` is a comma-separated **fallback chain**: the free tier allows only ~20 requests per day per
+model, so when a model returns an API error (HTTP 429 when its quota is used up) the next model in the list
+is used automatically. Reorder the list to start from a model that still has quota. Flash Lite models are
+last: they have a larger daily quota (~500) but lower quality. Model IDs available to a key:
+`curl -s "https://generativelanguage.googleapis.com/v1beta/models" -H "x-goog-api-key: $GEMINI_API_KEY"`.
 
 - `.env` is gitignored — never commit a real key.
 - Other providers: set `LLM_MODEL=<provider>:<model>` (e.g. `openai:…`, `anthropic:…`) and that
@@ -81,10 +90,29 @@ except DocumentParseError as exc:
 
 Without an LLM, scanned PDFs raise `DocumentParseError`; legacy `.doc` is not supported.
 
+### Department routing (`ai_service/routing/`)
+
+Suggests which City Hall units the official should write to, per question. The unit list
+(`data/departments.json`, 29 departments and offices with their duties) is scraped from BIP; refresh it
+with `uv run python scripts/scrape_departments.py`.
+
+```python
+from ai_service.routing import DepartmentRouter
+
+router = DepartmentRouter.from_env()           # create once and reuse (thread-safe)
+result = router.route(questions)               # questions: list[str] from QuestionExtractor
+result.questions[0].departments                # -> ["WE"]  (codes only, most relevant first)
+result.all_departments()                       # unique codes for the whole request
+router.directory.by_code["WE"].name            # name / email / url for the UI
+```
+
+Codes are validated against `departments.json` (the model retries on unknown codes). Without an LLM the
+suggestions are empty.
+
 ### Try it on sample requests
 
 ```bash
-# parse + extract questions
+# parse + extract questions (add --route for department suggestions)
 uv run --env-file .env python scripts/extract_questions.py "<path to request.pdf or .docx>"
 # parser only (prints the extracted text)
 uv run --env-file .env python scripts/extract_questions.py --text-only "<path>"

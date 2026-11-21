@@ -1,7 +1,6 @@
 from contracts.models import (
     AnalyzeInput,
     AnalyzeResult,
-    DepartmentSuggestion,
     Health,
     IngestInput,
     IngestResult,
@@ -13,25 +12,19 @@ from contracts.protocol import AIServiceProtocol
 class MockAIService(AIServiceProtocol):
     def analyze_request(self, input_data: AnalyzeInput) -> AnalyzeResult:
         return AnalyzeResult(
-            summary="Mock summary: Request regarding public road renovation.",
-            extracted_metadata={"topic": "Road renovation", "applicant": "Jan Kowalski"},
+            summary="Mock summary: Request regarding green areas and a street renovation.",
+            extracted_metadata={"topic": "Green areas and street renovation"},
             similar_cases=[
                 SimilarCase(
                     case_id="UDIP/2023/102",
                     score=0.92,
                     year=2023,
                     summary="Inquiry on street repairs schedule in Bydgoszcz.",
-                    departments=["WGR", "ZDMiKP"],
+                    departments=["WGK", "WIM"],
                 )
             ],
-            suggested_departments=[
-                DepartmentSuggestion(
-                    code="ZDMiKP",
-                    name="Zarząd Dróg Miejskich i Komunikacji Publicznej",
-                    score=0.95,
-                    reason="Handles road infrastructure and maintenance.",
-                )
-            ],
+            # Codes from data/departments.json
+            suggested_departments=["WGK", "WIM"],
         )
 
     def ingest(self, input_data: IngestInput) -> IngestResult:

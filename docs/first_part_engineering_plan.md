@@ -72,7 +72,7 @@ To let both subteams work in parallel, **implement the `contracts/` package firs
 | `health` | — | `Health {status, vector_db_count, departments_loaded, llm_provider}` |
 
 - `similar_cases[]`: `{case_id, score (0.0–1.0), year, summary, departments}`
-- `suggested_departments[]`: `{code, name, score, reason}`
+- `suggested_departments[]`: department **codes only** (e.g. `"WE"`), most relevant first (team decision). Subteam A looks up names/e-mails in `data/departments.json` (or the `Department` table seeded from it).
 - `kind`: `ARCHIVE_CASE | LAW | ORDER`
 - Part 2 methods are added when Part 2 is designed. Anonymization is **not** part of this protocol.
 
@@ -176,13 +176,15 @@ Use one DB connection/session per thread or Streamlit session.
 - Log calls and latency; never log document text.
 
 ### 6.2 Department Directory (`data/departments.json`)
-- Normalize the team's Bydgoszcz City Hall departments & offices list into a clean JSON structure loaded at startup (code, name, scope of responsibilities).
+- **Implemented.** 29 units scraped from BIP (19 departments from `/artykuly/198/wydzialy`, 10 offices from `/artykuly/1158/biura`) by `scripts/scrape_departments.py` (re-run to refresh; standard library only).
+- Fields per unit: `id` (BIP article id, stable), `code` (e.g. `WAB`), `name`, `kind` (`department` | `office`), `responsibilities` (duties list from BIP), `registers` (registers the unit keeps), `email`, `url`. Names of individual officials are not stored.
+- Loaded by `ai_service.routing.DepartmentDirectory.load()` (`by_code`, `describe()` for prompts).
 
 ### 6.3 LLM Provider Abstraction (`ai_service/llm/`)
 - Built on **Pydantic AI** (`pydantic-ai-slim[openai,anthropic,google]`): `Agent(model, output_type=<Pydantic model>, instructions=...)` gives validated structured output.
 - `config.py` reads settings; `model_factory.py` is the single place where the provider is chosen; prompts live in `prompts/*.md`.
 - Configured via `.env`:
-  - `LLM_MODEL` — Pydantic AI model string `<provider>:<model>` (e.g. `openai:…`, `anthropic:…`, `google:…`); the API key is read from the provider's standard variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …).
+  - `LLM_MODEL` — Pydantic AI model string `<provider>:<model>` (e.g. `openai:…`, `anthropic:…`, `google:…`); the API key is read from the provider's standard variable (`GEMINI_API_KEY`, `OPENAI_API_KEY`, …). A comma-separated list is a **fallback chain** (Pydantic AI `FallbackModel`): on an API error, e.g. HTTP 429 when the free-tier daily quota (~20 requests/model) is used up, the next model is used. Default chain in `.env.example`: Gemini Flash models, then Flash Lite (~500 requests/day).
   - `LLM_BASE_URL` + `LLM_API_KEY` (optional) — OpenAI-compatible endpoint (Ollama, vLLM, llama.cpp server); then `LLM_MODEL` is a plain model name. This is the production switch to a local model.
   - `LLM_PROVIDER=none` (or no `LLM_MODEL`) — LLM disabled, deterministic fallbacks.
 - **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers.
@@ -209,8 +211,11 @@ Use one DB connection/session per thread or Streamlit session.
 - No lemmatizer / spaCy in the MVP: dense embeddings handle Polish inflection; BM25 on lowercased tokens mainly catches exact identifiers (street names, plot numbers, resolution numbers).
 
 ### 6.6 Department Routing (`ai_service/routing/`)
-- Deterministic: k-NN vote from departments of similar past cases + embedding match against department scopes.
-- With LLM: ranked list with a short reason per department.
+- **Implemented — LLM routing** (`router.py`): `DepartmentRouter.from_env().route(questions: list[str])` → `RoutingResult{questions: [QuestionRouting{question, departments: list[str]}]}` — department **codes only**, per question, most relevant first; `result.all_departments()` gives the unique codes for the whole request. One LLM call per request (all questions at once).
+- Codes are validated against `departments.json`; unknown codes or a missing/extra question make the model retry (Pydantic AI output validator). Question text in the result is the original input, not LLM output. Empty list = no unit on the list fits (e.g. a municipal company).
+- Prompt: `ai_service/llm/prompts/route_departments.md` (BKS only for its own duties).
+- Without an LLM: empty suggestions. Planned deterministic fallback: k-NN vote from departments of similar past cases + embedding match against department scopes.
+- Contract: `AnalyzeResult.suggested_departments` is `list[str]` of codes (= `RoutingResult.all_departments()`); `DepartmentSuggestion` was removed.
 
 ---
 

@@ -1,6 +1,5 @@
-import os
-from contracts.protocol import AIServiceProtocol
 from ai_service.mock import MockAIService
+from contracts.protocol import AIServiceProtocol
 
 
 def get_ai_service() -> AIServiceProtocol:
