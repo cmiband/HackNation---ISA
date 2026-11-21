@@ -1,4 +1,5 @@
 from datetime import date
+
 from pydantic import BaseModel, Field
 
 
@@ -10,13 +11,6 @@ class SimilarCase(BaseModel):
     departments: list[str] = Field(default_factory=list)
 
 
-class DepartmentSuggestion(BaseModel):
-    code: str
-    name: str
-    score: float = Field(ge=0.0, le=1.0)
-    reason: str
-
-
 class AnalyzeInput(BaseModel):
     text: str
     received_date: date | None = None
@@ -26,7 +20,8 @@ class AnalyzeResult(BaseModel):
     summary: str
     extracted_metadata: dict[str, str] = Field(default_factory=dict)
     similar_cases: list[SimilarCase] = Field(default_factory=list)
-    suggested_departments: list[DepartmentSuggestion] = Field(default_factory=list)
+    # Department codes only (e.g. "WE"), most relevant first; names/e-mails are in data/departments.json.
+    suggested_departments: list[str] = Field(default_factory=list)
 
 
 class IngestInput(BaseModel):

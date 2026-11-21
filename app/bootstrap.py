@@ -1,5 +1,6 @@
 import os
 import sys
+
 from app.config import settings
 from app.db.engine import check_db_connection
 

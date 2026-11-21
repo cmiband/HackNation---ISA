@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
-import sqlite3
+from datetime import UTC, datetime
+
 from sqlalchemy import text
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 from app.config import settings
 
 # SQLite connection args for multithreaded Streamlit usage
@@ -42,7 +42,7 @@ def check_db_connection() -> dict[str, str | bool]:
                     ")"
                 )
             )
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(UTC).isoformat()
             conn.execute(
                 text("INSERT INTO _system_health (pinged_at) VALUES (:ts)"),
                 {"ts": now_iso},

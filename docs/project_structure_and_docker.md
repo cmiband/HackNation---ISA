@@ -42,7 +42,7 @@ HackNation---ISA/
 ├── contracts/                # SHARED — the only boundary between subteams; changes need both subteams
 │   ├── __init__.py
 │   ├── enums.py              # RequestStatus, DocumentKind
-│   ├── models.py             # Pydantic I/O: AnalyzeInput/Result, SimilarCase, DepartmentSuggestion,
+│   ├── models.py             # Pydantic I/O: AnalyzeInput/Result, SimilarCase,
 │   │                         #   IngestInput/Result, Health (Part 2 models added later)
 │   └── protocol.py           # AIServiceProtocol (typing.Protocol, @runtime_checkable)
 │
@@ -94,7 +94,8 @@ HackNation---ISA/
 │   │   ├── lexical.py        # BM25 on lowercased tokens (backend-independent)
 │   │   └── similar_cases.py  # dense + BM25 → RRF fusion, year filter
 │   ├── routing/
-│   │   └── departments.py    # k-NN vote from past cases + scope matching + LLM explanation
+│   │   ├── directory.py      # DepartmentDirectory: loads data/departments.json
+│   │   └── router.py         # DepartmentRouter: questions → department codes per question (LLM)
 │   ├── drafting/             # Part 2 — not designed yet
 │   │   └── __init__.py
 │   └── ingestion/
@@ -105,7 +106,7 @@ HackNation---ISA/
 │   └── __init__.py
 │
 ├── data/                     # committed, read-only inputs
-│   ├── departments.json
+│   ├── departments.json      # 29 units scraped from BIP (scripts/scrape_departments.py)
 │   ├── templates/
 │   │   └── response_template.docx   # Part 2
 │   └── seed/
@@ -114,6 +115,8 @@ HackNation---ISA/
 │       └── legislation/      # UDIP, KPA excerpts, orders
 │
 ├── scripts/
+│   ├── scrape_departments.py # BIP → data/departments.json (re-run to refresh)
+│   ├── extract_questions.py  # manual check: parse → extract questions → (--route) departments
 │   ├── seed_all.py           # idempotent: DB + vector index from data/seed (--if-empty)
 │   ├── reindex.py            # rebuild the vector index from DB + data/ (after a backend change)
 │   ├── download_models.py    # used by Dockerfile to bake models into the image
@@ -125,7 +128,8 @@ HackNation---ISA/
     ├── contracts/test_mock_conforms.py   # MockAIService & AIService satisfy the Protocol
     ├── app/test_deadlines.py
     ├── ai_service/test_question_extraction.py
-    └── ai_service/test_parser.py
+    ├── ai_service/test_parser.py
+    └── ai_service/test_routing.py
 ```
 
 ### Import rules
