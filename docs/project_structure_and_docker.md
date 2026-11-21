@@ -79,7 +79,10 @@ HackNation---ISA/
 │   │   ├── model_factory.py  # Pydantic AI model: "<provider>:<model>" or OpenAI-compatible base URL
 │   │   ├── schemas.py        # structured outputs (RequestQuestions)
 │   │   ├── question_extraction.py  # QuestionExtractor: request text → self-contained questions
+│   │   ├── ocr.py            # LLMOcr: scanned PDF → text via multimodal LLM
 │   │   └── prompts/          # prompt templates (*.md)
+│   ├── parsing/
+│   │   └── parser.py         # DocumentParser: PDF/DOCX bytes → text (pypdf, python-docx, LLM OCR)
 │   ├── embeddings/
 │   │   └── embedder.py       # sentence-transformers, model from EMBEDDING_MODEL
 │   ├── vector_store/         # swappable, see section 5
@@ -120,7 +123,8 @@ HackNation---ISA/
 └── tests/
     ├── contracts/test_mock_conforms.py   # MockAIService & AIService satisfy the Protocol
     ├── app/test_deadlines.py
-    └── ai_service/test_question_extraction.py
+    ├── ai_service/test_question_extraction.py
+    └── ai_service/test_parser.py
 ```
 
 ### Import rules

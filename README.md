@@ -63,10 +63,31 @@ result.questions                           # -> list[str]
 
 Without an LLM (`LLM_PROVIDER=none` or no `LLM_MODEL`) the whole text is returned as one question.
 
-Try it on a sample request (`.docx` or `.txt`):
+### Document parser (`ai_service/parsing/`)
+
+Turns an uploaded request file into plain text. `.docx` and PDFs with a text layer are read locally;
+scanned PDFs (no text layer) are transcribed by Gemini (OCR).
+
+```python
+from ai_service.parsing import DocumentParser, DocumentParseError
+
+parser = DocumentParser.from_env()          # create once and reuse (thread-safe)
+try:
+    doc = parser.parse(uploaded.name, uploaded.getvalue())   # e.g. a Streamlit UploadedFile
+    doc.text, doc.method                    # method: "docx" | "pdf_text" | "pdf_ocr"
+except DocumentParseError as exc:
+    ...                                     # str(exc) is safe to show to the user
+```
+
+Without an LLM, scanned PDFs raise `DocumentParseError`; legacy `.doc` is not supported.
+
+### Try it on sample requests
 
 ```bash
-uv run --env-file .env python scripts/extract_questions.py "<path to request.docx>"
+# parse + extract questions
+uv run --env-file .env python scripts/extract_questions.py "<path to request.pdf or .docx>"
+# parser only (prints the extracted text)
+uv run --env-file .env python scripts/extract_questions.py --text-only "<path>"
 ```
 
 Sample requests are kept locally in `.local/data/` (gitignored, not in the repo) — get them from the
