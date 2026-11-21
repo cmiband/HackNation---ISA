@@ -187,10 +187,19 @@ Use one DB connection/session per thread or Streamlit session.
 - Polish public holidays: `holidays` package (check its docs).
 
 ### 5.4 Streamlit UI Views (`app/ui/`)
-- **Calendar / Table** (`pages/calendar.py`): requests oldest → newest, year filter, deadline highlighting, status, days remaining, initials, sequence number, request ID, topic summary, dates.
-- **Upload & Triage** (`pages/intake.py`): upload (file is being parsed on the AI-side of the project) → `analyze_request` → show similar cases + suggested departments → official edits/confirms metadata → save.
-- **Case view** (`pages/case.py`): metadata, status changes (with history), department inquiries. Part 2 features plug in here later.
-- **Knowledge base** (`pages/knowledge_base.py`): upload archive cases / legislation → `ingest` (jury test 6, see §10).
+Navigation: `st.tabs` in `app/ui/main.py`; each tab's content lives in `app/ui/views/<name>.py` (`render()`).
+Current tabs: **System Status** (DB + storage check), **Upload Request** (`views/upload.py`: multi-file drag & drop
+restricted to `.pdf` / `.docx` — wrong files are listed in a red error with the reason and excluded from the summary;
+read-only summary table, accept/reject — all files are treated as Applications, accepting resets the UI, displays
+`st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard** (placeholder).
+  - **DB integration hook (`app/ui/views/upload.py` → `load_files()`):** inside the per-file `for` loop, immediately
+    after `save_uploaded_file(...)` returns `saved_path`, call the DB/registry function to persist `FileData`
+    (`Filename=saved_path.name` — reflects any `_1`/`_2` deduplication — and `FileType.APPLICATION`) and `Case`.
+
+- **Calendar / Table** (`views/calendar.py`): requests oldest → newest, year filter, deadline highlighting, status, days remaining, initials, sequence number, request ID, topic summary, dates.
+- **Upload & Triage** (`views/intake.py`): upload (file is being parsed on the AI-side of the project) → `analyze_request` → show similar cases + suggested departments → official edits/confirms metadata → save.
+- **Case view** (`views/case.py`): metadata, status changes (with history), department inquiries. Part 2 features plug in here later.
+- **Knowledge base** (`views/knowledge_base.py`): upload archive cases / legislation → `ingest` (jury test 6, see §10).
 - Show `health()` status (LLM provider, archive size) in the sidebar.
 
 ---

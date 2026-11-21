@@ -56,14 +56,16 @@ HackNation---ISA/
 │   │   └── repository.py     # one repository class per table (CRUD + queries; more queries by year, status, overdue to come)
 │   ├── services/
 │   │   ├── deadlines.py      # 14 days / 2 months / weekend+holiday shift, highlight level
+│   │   ├── file_storage.py   # save uploaded files under storage/files/{applications,responses}/
 │   │   ├── registry.py       # case lifecycle, status transitions, audit log
 │   │   ├── exporter.py       # Part 2: final response → .docx / .txt
 │   │   └── ai.py             # get_ai() = st.cache_resource around ai_service.factory
 │   └── ui/
-│       ├── main.py           # entry: st.navigation, login/initials
+│       ├── main.py           # entry: st.tabs navigation (System Status | Upload Request | Dashboard)
 │       ├── i18n.py           # Polish UI labels
 │       ├── components/       # status badges, deadline chips
-│       └── pages/
+│       └── views/            # one render() per tab; NOT `pages/` (Streamlit would add its own sidebar nav)
+│           ├── upload.py         # implemented: multi-file drag & drop (PDF/DOCX), summary, accept/reject
 │           ├── calendar.py       # table + calendar, year filter, highlighting
 │           ├── intake.py         # upload → triage → verify → save
 │           ├── case.py           # case file: metadata, status, dept inquiries (Part 2 adds more)
