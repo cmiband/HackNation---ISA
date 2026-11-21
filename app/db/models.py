@@ -5,7 +5,7 @@ Column names follow Python snake_case; the plan's PascalCase names map 1:1
 Enums are shared with the AI side and live in ``contracts.enums``.
 """
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -13,7 +13,7 @@ from contracts.enums import CaseStatus, FileType, RequestStatus
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class User(SQLModel, table=True):
