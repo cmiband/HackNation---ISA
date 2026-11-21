@@ -47,7 +47,7 @@ We are building an **Intelligent Assistant for Public Officials** to handle **Ac
 Browser ─▶ Streamlit app (app/) ──(Python call)──▶ AIService (ai_service/) ─▶ LLM API (cloud)
                 │                                        │
                 ▼                                        ▼
-          SQLite (SQLModel)                    vector store (embedded, swappable)
+          SQLite (SQLModel)                    Qdrant (separate container)
 ```
 
 - **One Python process, one Docker container.** There is no HTTP between subteams: the Streamlit app imports the AI layer as a Python class behind a shared interface (§4).
@@ -230,10 +230,14 @@ Use one DB connection/session per thread or Streamlit session.
 
 ### 6.4 Embedding Encoder & Vector Store (`ai_service/embeddings/`, `ai_service/vector_store/`)
 - **Embeddings:** local sentence-transformers model from `EMBEDDING_MODEL` (e.g. `intfloat/multilingual-e5-base`; `bge-m3` for higher quality, larger image).
-- **Vector store:** embedded, zero external servers; default LanceDB or Chroma. **The developer may change the backend** — follow the swappability rules in `project_structure_and_docker.md` §5 (narrow `VectorStore` protocol, embeddings computed outside the store, index rebuildable via `scripts/reindex.py`).
+- **Embeddings (other dev):** `sdadas/mmlw-roberta-base` (768-dim dense; query prefix `"zapytanie: "`) + BM25 sparse vectors.
+- **Vector store — implemented** (`ai_service/vector_store/`): **Qdrant** in a separate Compose service; details in `project_structure_and_docker.md` §5.
+  - `QuestionStore.from_env()`; `upsert_case(case_id, [QuestionVectors(question, dense, sparse)])` (replaces the case's questions), `delete_case(case_id)`, `search_similar_cases(queries, limit, exclude_case_id)` → `[SimilarCaseHit{case_id, score, matches[]}]`, `count_points()`, `reset()`, `healthy()`.
+  - Payload only `case_id` (= SQLite `Case.Id`) + `question`; search over the whole collection.
+  - Callers pass vectors (plain dataclasses, no `qdrant_client` import needed). Ingestion/seeding from SQLite: other teammate.
 
 ### 6.5 Hybrid Retrieval (`ai_service/retrieval/`)
-- Dense vectors + BM25, fused with Reciprocal Rank Fusion, filtered by year; normalized scores `0.0`–`1.0`.
+- Dense vectors + BM25, fused with Reciprocal Rank Fusion **inside Qdrant** (prefetch + RRF), grouped by `case_id`, over the whole archive (no year filter). Scores are rank-fusion scores (higher = more similar); map them to the contract's `0.0`–`1.0` in `AIService`.
 - No lemmatizer / spaCy in the MVP: dense embeddings handle Polish inflection; BM25 on lowercased tokens mainly catches exact identifiers (street names, plot numbers, resolution numbers).
 
 ### 6.6 Department Routing (`ai_service/routing/`)
@@ -260,7 +264,7 @@ Use one DB connection/session per thread or Streamlit session.
 ## 8. Security Baseline
 - Port bound to `127.0.0.1` only; simple login with initials.
 - Audit log of status changes and exports; never log document text.
-- Telemetry off: Streamlit `browser.gatherUsageStats = false`, Chroma `anonymized_telemetry=False` (if used), `HF_HUB_OFFLINE=1` at runtime.
+- Telemetry off: Streamlit `browser.gatherUsageStats = false`, Qdrant `QDRANT__TELEMETRY_DISABLED=true`, `HF_HUB_OFFLINE=1` at runtime.
 - API keys only in `.env` (gitignored) — never in the repo or the image.
 
 ---
