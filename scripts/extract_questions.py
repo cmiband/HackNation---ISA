@@ -1,9 +1,10 @@
-"""Manual check of parsing + question extraction on sample requests.
+"""Manual check of parsing, question extraction and department routing on sample requests.
 
     uv run --env-file .env python scripts/extract_questions.py "<file.pdf|file.docx>" [...]
+    uv run --env-file .env python scripts/extract_questions.py --route "<file>"       # + departments
     uv run --env-file .env python scripts/extract_questions.py --text-only "<file>"   # parser only
 
-Prints the parse method, the extracted text (with --text-only) or the extracted questions as JSON.
+Each LLM step is one API request per file (OCR for scans, extraction, routing).
 """
 
 import json
@@ -11,13 +12,16 @@ import sys
 
 from ai_service.llm import QuestionExtractor
 from ai_service.parsing import DocumentParseError, DocumentParser
+from ai_service.routing import DepartmentRouter
 
 
 def main(args: list[str]) -> None:
     text_only = "--text-only" in args
-    paths = [a for a in args if a != "--text-only"]
+    route = "--route" in args
+    paths = [a for a in args if not a.startswith("--")]
     parser = DocumentParser.from_env()
     extractor = None if text_only else QuestionExtractor.from_env()
+    router = DepartmentRouter.from_env() if route and not text_only else None
 
     for p in paths:
         try:
@@ -29,7 +33,13 @@ def main(args: list[str]) -> None:
         if text_only:
             out["text"] = doc.text
         else:
-            out.update(extractor.extract(doc.text).model_dump())
+            questions = extractor.extract(doc.text).questions
+            if router is None:
+                out["questions"] = questions
+            else:
+                result = router.route(questions)
+                out.update(result.model_dump())
+                out["all_departments"] = result.all_departments()
         print(json.dumps(out, ensure_ascii=False, indent=2))
 
 

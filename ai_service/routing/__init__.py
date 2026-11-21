@@ -1,0 +1,4 @@
+from ai_service.routing.directory import Department, DepartmentDirectory
+from ai_service.routing.router import DepartmentRouter, QuestionRouting, RoutingResult
+
+__all__ = ["Department", "DepartmentDirectory", "DepartmentRouter", "QuestionRouting", "RoutingResult"]
