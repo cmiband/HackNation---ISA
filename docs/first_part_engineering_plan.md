@@ -193,7 +193,14 @@ Use one DB connection/session per thread or Streamlit session.
   - `LLM_BASE_URL` + `LLM_API_KEY` (optional) — OpenAI-compatible endpoint (Ollama, vLLM, llama.cpp server); then `LLM_MODEL` is a plain model name. This is the production switch to a local model.
   - `LLM_PROVIDER=none` (or no `LLM_MODEL`) — LLM disabled, deterministic fallbacks.
 - **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers.
-- Manual check: `uv run --env-file .env python scripts/extract_questions.py "<request.docx>"`.
+- **Implemented — OCR** (`ocr.py`): `LLMOcr.transcribe(pdf_bytes)` sends a scanned PDF to the multimodal LLM (Gemini) and returns the verbatim text.
+
+### 6.3a Document Parser (`ai_service/parsing/`) — implemented
+- `DocumentParser.from_env().parse(filename, data: bytes)` → `ParsedDocument{filename, text, method, pages}`; `parse_path(path)` for scripts.
+- `.docx` → python-docx (paragraphs and tables in document order). PDF with a text layer → pypdf (local). PDF without a text layer (scan; < 30 chars/page) → `LLMOcr`; method `pdf_ocr`.
+- Errors raise `DocumentParseError` with a message safe to show in the UI: empty file, legacy `.doc`, unsupported type, broken/encrypted PDF or DOCX, no text, scanned PDF while the LLM is disabled.
+- Thread-safe, create once (`st.cache_resource`).
+- Manual check (parse + extract questions): `uv run --env-file .env python scripts/extract_questions.py "<request.pdf|.docx>"`; parser only: add `--text-only`.
 - Use structured output (JSON schema / Pydantic) for `summary`, metadata and department ranking; check the provider's docs for support.
 - **LLM-optional core:** with `LLM_PROVIDER=none`, retrieval and routing still work (deterministic fallbacks); the LLM only adds summaries and explanations. This also makes the demo resilient to API outages.
 - **Production model candidates (for the presentation, not run in the MVP):**
@@ -241,7 +248,7 @@ Use one DB connection/session per thread or Streamlit session.
    - Create `contracts/` (§4), `ai_service/factory.py`, `ai_service/mock.py`, and `data/departments.json`.
 2. **Step 2 — Parallel Development:**
    - **Subteam A:** `app/db/`, `app/services/deadlines.py`, `app/services/registry.py`, `app/services/ai.py`, Streamlit pages (Calendar/Table, Upload & Triage, Case view) working against `MockAIService`.
-   - **Subteam B:** `ai_service/llm/` (question extraction done), `ai_service/embeddings/`, `ai_service/vector_store/`, `ai_service/retrieval/`, `ai_service/routing/`, `ai_service/ingestion/`, `ai_service/service.py`, `scripts/seed_all.py`, `scripts/reindex.py`, `scripts/download_models.py`.
+   - **Subteam B:** `ai_service/llm/` (question extraction + OCR done), `ai_service/parsing/` (done), `ai_service/embeddings/`, `ai_service/vector_store/`, `ai_service/retrieval/`, `ai_service/routing/`, `ai_service/ingestion/`, `ai_service/service.py`, `scripts/seed_all.py`, `scripts/reindex.py`, `scripts/download_models.py`.
 3. **Step 3 — Integration & End-to-End Smoke Test:**
    - Switch `AI_MOCK=0`; run natively (`uv run streamlit run app/ui/main.py`) and then via `docker compose up --build`.
    - Upload a sample `.pdf` and `.docx` request, verify similar past cases appear, department suggestions match the Bydgoszcz list, edit/confirm metadata, and check the new item appears in the sorted calendar with correct deadline highlighting.

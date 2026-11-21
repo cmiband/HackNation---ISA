@@ -4,5 +4,9 @@
 storage/
 **/__pycache__
 .pytest_cache
+.local/
+.claude/
+.idea/
+.vscode/
 docs/
 tests/

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -10,7 +10,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 # curl is used for HEALTHCHECK, install uv via pip to avoid external GHCR auth issues
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir uv==0.9.27
+    && pip install --no-cache-dir uv==0.11.19
 
 WORKDIR /app
 
