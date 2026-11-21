@@ -231,14 +231,12 @@ services:
       STREAMLIT_SERVER_ADDRESS: "0.0.0.0"   # inside the container; the host port binding limits exposure
       STREAMLIT_SERVER_PORT: "8501"
       STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
-      DATABASE_URL: "sqlite:////app/storage/udip.db"
-      VECTOR_STORE_PATH: "/app/storage/vectors"
+      DATABASE_URL: "sqlite:////app/storage/app.db"
+      STORAGE_DIR: "/app/storage"
+      FILES_DIR: "/app/storage/files"
     volumes:
-      - storage:/app/storage
+      - ${HOST_STORAGE_PATH:-./storage}:/app/storage
     restart: unless-stopped
-
-volumes:
-  storage:
 ```
 
 Check the `env_file` long syntax with `required: false` against the Compose docs and the Compose
@@ -280,7 +278,7 @@ tests/
 | What | Where | Lifetime |
 |------|-------|----------|
 | Code, `data/` seed files, models | image | rebuilt with `--build` |
-| SQLite DB, vector index, exports | named volume `storage` | survives restarts; `docker compose down -v` resets |
+| SQLite DB, file archive (`files/`), vector index | host-mounted folder `storage/` | survives restarts; host inspection direct |
 | API key | `.env` (gitignored) | never in the image or repo |
 
 First start: `bootstrap` sees an empty DB → runs `seed_all.py` → 10 test requests, archive and

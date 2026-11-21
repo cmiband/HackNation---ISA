@@ -2,6 +2,10 @@
 .env
 .venv/
 __pycache__/
+*.py[cod]
 .pytest_cache/
-storage/
+storage/*
+!storage/.gitkeep
 .claude/settings.local.json
+.idea/
+.vscode/

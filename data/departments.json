@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "code": "WGR",
+    "name": "Wydział Gospodarki Komunalnej i Ochrony Środowiska",
+    "responsibilities": "Gospodarka komunalna, zieleń miejska, czystość i odpady, ochrona środowiska."
+  },
+  {
+    "id": 2,
+    "code": "ZDMiKP",
+    "name": "Zarząd Dróg Miejskich i Komunikacji Publicznej",
+    "responsibilities": "Drogi publiczne, komunikacja miejska, organizacja ruchu, remonty ulic."
+  },
+  {
+    "id": 3,
+    "code": "WAiB",
+    "name": "Wydział Administracji Budowlanej",
+    "responsibilities": "Pozwolenia na budowę, plany zagospodarowania przestrzennego, architektura."
+  },
+  {
+    "id": 4,
+    "code": "WGN",
+    "name": "Wydział Gospodarki Nieruchomościami",
+    "responsibilities": "Gospodarowanie nieruchomościami miejskimi, sprzedaż i dzierżawa gruntów."
+  }
+]
