@@ -1,0 +1,26 @@
+[project]
+name = "udip-assistant"
+version = "0.1.0"
+description = "Assistant for officials handling requests for access to public information (UDIP)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2",
+    "pydantic-ai-slim[openai,anthropic,google]>=2.71",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Add `app` and `contracts` here once those packages exist.
+packages = ["ai_service"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -12,10 +12,70 @@ Hacknation 24 h hackathon.
 | `docs/first_part_engineering_plan.md` | Architecture, scope, contracts, specs for Part 1 |
 | `docs/project_structure_and_docker.md` | Folder skeleton, import rules, Docker setup |
 
-## Quickstart (planned — available once the skeleton is implemented)
+## Developer setup
+
+Requirements: [uv](https://docs.astral.sh/uv/) (it installs the pinned Python 3.12 from `.python-version`
+automatically).
 
 ```bash
-cp .env.example .env        # optional: set LLM_PROVIDER / LLM_API_KEY
+git pull
+uv sync                     # creates .venv and installs all dependencies from uv.lock
+cp .env.example .env        # first time only; then fill in the API key (see below)
+uv run pytest               # all tests must pass (no API calls are made in tests)
+```
+
+After every `git pull` run `uv sync` again — someone may have added dependencies.
+
+To add a dependency: `uv add <package>` (dev-only: `uv add --dev <package>`). Commit both
+`pyproject.toml` and `uv.lock`. On a `uv.lock` merge conflict, do not merge it by hand: take either side
+and run `uv lock`.
+
+### LLM configuration (`.env`)
+
+The MVP uses a cloud LLM through [Pydantic AI](https://ai.pydantic.dev/). We start with Google Gemini:
+
+```dotenv
+LLM_MODEL=google:gemini-3.6-flash
+GEMINI_API_KEY=<your key>
+```
+
+- `.env` is gitignored — never commit a real key.
+- Other providers: set `LLM_MODEL=<provider>:<model>` (e.g. `openai:…`, `anthropic:…`) and that
+  provider's key variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
+- `LLM_PROVIDER=none` disables the LLM; modules fall back to deterministic behavior.
+- `uv run` does not read `.env` by itself — pass it explicitly: `uv run --env-file .env ...`.
+
+## Available modules
+
+### Question extraction (`ai_service/llm/`)
+
+Extracts only the applicant's questions/requests from the full text of a request (drops greetings,
+legal-basis citations, signatures, contact data, delivery preferences). Each question is self-contained,
+in the original language, ready to be embedded and searched in the vector DB one by one.
+
+```python
+from ai_service.llm import QuestionExtractor
+
+extractor = QuestionExtractor.from_env()   # create once and reuse (thread-safe; st.cache_resource in UI)
+result = extractor.extract(request_text)   # -> RequestQuestions
+result.questions                           # -> list[str]
+```
+
+Without an LLM (`LLM_PROVIDER=none` or no `LLM_MODEL`) the whole text is returned as one question.
+
+Try it on a sample request (`.docx` or `.txt`):
+
+```bash
+uv run --env-file .env python scripts/extract_questions.py "<path to request.docx>"
+```
+
+Sample requests are kept locally in `.local/data/` (gitignored, not in the repo) — get them from the
+team.
+
+## Running with Docker (planned — available once the Docker setup is implemented)
+
+```bash
+cp .env.example .env        # set LLM_MODEL / GEMINI_API_KEY
 docker compose up --build   # first build downloads models, takes several minutes
 # open http://localhost:8501
 ```
