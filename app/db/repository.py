@@ -55,10 +55,11 @@ class CaseRepository:
         return list(cases)
 
     def update(self, case: Case) -> Case:
-        """Persist changes made to an already stored case."""
+        """Persist changes made to an already stored case and write a ``CaseHistory`` snapshot."""
         if case.id is None:
             raise ValueError("Cannot update a case that has not been added yet.")
         self.session.add(case)
+        self.session.add(CaseHistory.snapshot(case))
         self.session.commit()
         self.session.refresh(case)
         return case

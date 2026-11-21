@@ -177,7 +177,7 @@ Use one DB connection/session per thread or Streamlit session.
 - `FileDataRepository`: `add`, `add_all`, `get_by_id`.
 - `DepartmentRequestRepository`: `add`, `update`, `get_by_id`, `get_dep_requests_by_case_id`.
 - `CaseHistoryRepository`: `add`.
-- Repositories do no business logic. `app/services/registry.py` writes a `CaseHistory.snapshot` after each `Case` change.
+- Repositories do no business logic, except `CaseRepository.update`, which writes a `CaseHistory.snapshot` in the same commit as the change. `app/services/registry.py` handles the remaining rules (status transitions).
 
 ### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested)
 - `deadline = received_date + 14 days` (art. 13 ust. 1 UDIP; the day of receipt is not counted).
@@ -192,9 +192,10 @@ Current tabs: **System Status** (DB + storage check), **Upload Request** (`views
 restricted to `.pdf` / `.docx` — wrong files are listed in a red error with the reason and excluded from the summary;
 read-only summary table, accept/reject — all files are treated as Applications, accepting resets the UI, displays
 `st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard** (placeholder).
-  - **DB integration hook (`app/ui/views/upload.py` → `load_files()`):** inside the per-file `for` loop, immediately
-    after `save_uploaded_file(...)` returns `saved_path`, call the DB/registry function to persist `FileData`
-    (`Filename=saved_path.name` — reflects any `_1`/`_2` deduplication — and `FileType.APPLICATION`) and `Case`.
+  - **DB integration (`app/ui/views/upload.py` → `load_files()`):** done. After `save_uploaded_file(...)` returns
+    `saved_path`, `CaseRepository.add_with_application` persists `FileData` (`filename=saved_path.name` — reflects any
+    `_1`/`_2` deduplication — and `FileType.APPLICATION`) and a `Case` (status `NEW`, `created_date=today`,
+    `response_deadline=today+14d` placeholder until `services/deadlines.py` exists). No history row on creation. Optional `session` arg (default: new `Session(engine)`) for tests.
 
 - **Calendar / Table** (`views/calendar.py`): requests oldest → newest, year filter, deadline highlighting, status, days remaining, initials, sequence number, request ID, topic summary, dates.
 - **Upload & Triage** (`views/intake.py`): upload (file is being parsed on the AI-side of the project) → `analyze_request` → show similar cases + suggested departments → official edits/confirms metadata → save.
