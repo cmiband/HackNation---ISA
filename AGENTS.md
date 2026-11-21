@@ -1,2 +1,6 @@
 - after each task done check the documentation and update it
 - our team consists of 4 members and we take part in a 24-hour hackathon and we are quickly building a MVP 
+- agents are not allowed to interact in any way with the remote repo (no push), developers will do that manually
+- read `docs/first_part_engineering_plan.md` (architecture, scope, contracts) and `docs/project_structure_and_docker.md` (folder skeleton, import rules, Docker) before implementing
+- the project structure may be adjusted slightly by any developer, but the overall skeleton, import rules and shared files must stay as described in `docs/project_structure_and_docker.md`
+- the anonymization module is separate and not designed yet
