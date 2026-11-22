@@ -1,6 +1,6 @@
 from typing import Protocol, runtime_checkable
 
-from contracts.models import AnalyzeInput, AnalyzeResult, DraftInput, DraftResult, Health
+from contracts.models import AnalyzeInput, AnalyzeResult, DocumentInput, DraftInput, DraftResult, Health
 
 
 class DocumentReadError(ValueError):
@@ -25,6 +25,10 @@ class AIServiceProtocol(Protocol):
         The draft is a proposal to review. Raises DocumentReadError if a file cannot be read; other failures
         give a template body + `warnings`. (Redirect letters for OUT_OF_SCOPE come with `analyze_request`.)
         """
+        ...
+
+    def extract_text(self, document: DocumentInput) -> str:
+        """Plain text of a PDF / DOCX (OCR for scans). Raises DocumentReadError if it cannot be read."""
         ...
 
     def delete_case(self, case_id: int) -> None:

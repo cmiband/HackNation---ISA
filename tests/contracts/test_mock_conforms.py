@@ -20,3 +20,17 @@ def test_mock_draft_response():
     draft = service.draft_response(DraftInput(questions=["a", "b"], documents=[DocumentInput(text="x")]))
     assert draft.body.startswith("w odpowiedzi") and draft.unanswered_questions == [2]
     assert all(v in draft.body for v in draft.values_to_verify)
+
+
+def test_extract_text_mock_and_real():
+    from ai_service.embeddings import QuestionEmbedder
+    from ai_service.llm import RequestAnalyzer
+    from ai_service.parsing import DocumentParser
+    from ai_service.routing import DepartmentRouter
+    from ai_service.service import AIService
+    from contracts.models import DocumentInput
+
+    assert "Jan Kowalski" in get_ai_service(mock=True).extract_text(DocumentInput(filename="a.pdf", data=b"x"))
+    real = AIService(parser=DocumentParser(None), analyzer=RequestAnalyzer(None), router=DepartmentRouter(None),
+                     embedder=QuestionEmbedder(dense_fn=lambda t: [[1.0] for _ in t]))
+    assert real.extract_text(DocumentInput(text="  tekst   z  odstępami ")) == "  tekst   z  odstępami "

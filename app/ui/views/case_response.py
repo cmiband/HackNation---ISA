@@ -1,4 +1,6 @@
-"""Case popup sections: department reply files and the reply draft editor."""
+"""Case popup sections: department reply files, the reply draft editor, anonymization and export."""
+
+from datetime import date
 
 import streamlit as st
 from sqlmodel import Session
@@ -14,6 +16,8 @@ from app.services.case_response import (
     load_draft,
     save_draft_body,
 )
+from app.services.exporter import EXPORT_FROM, Letter, response_filename, save_response, to_docx, to_txt
+from app.ui.components.anonymization import render_anonymization_review
 from app.ui.services import get_cached_ai_service
 from app.ui.views.case_analysis import AnalysisView
 from contracts.enums import CaseStatus
@@ -106,3 +110,31 @@ def render_draft_editor(case_id: int, status: CaseStatus, questions: list[str]) 
             st.toast("Projekt zapisany.", icon="✅")
             st.rerun(scope="fragment")
     return draft
+
+
+def render_finalize(case_id: int, status: CaseStatus, draft: DraftResult | None, case_number: str | None,
+                    applicant: str | None) -> None:
+    """Anonymization of the draft body, then the final letter (download + save as the case's reply)."""
+    if draft is None or status not in EXPORT_FROM:
+        return
+    st.markdown("#### Anonimizacja i odpowiedź końcowa")
+    redacted = render_anonymization_review(f"case_{case_id}", draft.body)
+    if redacted is None:
+        return
+    letter = Letter(body=redacted, case_number=case_number, addressee=applicant, letter_date=date.today())
+    st.caption("Pismo końcowe (po anonimizacji):")
+    st.code(letter.text(), language=None, wrap_lines=True)
+    docx_bytes, txt_bytes = to_docx(letter), to_txt(letter)
+    c1, c2, c3 = st.columns([1, 1, 2])
+    c1.download_button("Pobierz .docx", docx_bytes, file_name=response_filename(case_number, case_id, ".docx"),
+                       key=f"final_docx_{case_id}")
+    c2.download_button("Pobierz .txt", txt_bytes, file_name=response_filename(case_number, case_id, ".txt"),
+                       key=f"final_txt_{case_id}")
+    if c3.button("Zapisz odpowiedź w sprawie", key=f"final_save_{case_id}", type="primary"):
+        try:
+            save_response(case_id, docx_bytes)
+        except (LookupError, ValueError) as exc:
+            st.error(str(exc))
+            return
+        st.toast("Odpowiedź zapisana — status: odpowiedź przygotowana.", icon="✅")
+        st.rerun(scope="fragment")
