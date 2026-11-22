@@ -115,3 +115,11 @@ def test_case_ids(store):
     assert store.case_ids() == {1, 2, 3}
     store.delete_case(2)
     assert store.case_ids() == {1, 3}
+
+
+def test_case_questions(store):
+    assert store.case_questions([1, 3]) == {
+        1: ["liczba uczniów w szkołach", "liczba nauczycieli"],
+        3: ["uczniowie obcokrajowcy"],
+    }
+    assert store.case_questions([]) == {}

@@ -142,6 +142,23 @@ max 0.81; out-of-scope 15/17 max 0.82/0.85. Real check: request 599 vs archived 
 - **Caveat:** these thresholds were fitted on 9 archive cases + 5 test requests — far too few; they are not
   validated. Tuning is done later by the team on a separate set.
 
+### 3.5 Implemented — period masking + LLM duplicate check (from the research, measured held-out)
+Root cause (research agent, own dev set of 65 queries + held-out `data/eval`): on templated administrative
+Polish the dense cosine is dominated by the template; the meaningful word moves it little. Ranking is good
+(AUC 0.94–0.99), absolute thresholds are not; bigger embedders (mmlw-large, e5, retrieval models) and the
+Polish cross-encoder (`polish-reranker-base-ranknet`, 475 MB, 1.7–4.6 s) did not reach usable precision.
+Implemented:
+- `ai_service/embeddings/normalize.py::mask_periods` — years, school years, ranges, dates, month names removed
+  before **dense** embedding (sparse + stored text keep the original); prefix "zapytanie: " on both sides.
+- Offline thresholds 0.98 / 0.97, floor 0.85 → held-out: DUPLICATE precision 6/6, recall 6/15, partial 8/8,
+  related 8/8, unrelated 7/7, hard negatives 8/8, negatives with similar cases 0/15, relevant listed 22/31.
+- `ai_service/llm/duplicate_check.py::DuplicateVerifier` — one call with the top 3 candidates above the gate
+  0.90 (all true duplicates have best match ≥ 0.926 on eval / 0.945 on dev); measured in batches of 10 queries
+  (harder than one per request): held-out precision 15/16, recall 15/15, negatives 0/15; dev 22/22, 22/23.
+  Decides DUPLICATE when available; LLM error → offline rule + warning. Real check: 599 → DUPLICATE of 307
+  (missed by the strict offline rule), police request → OUT_OF_SCOPE.
+- Margin-based rules were rejected: they collapse when the same request recurs every year.
+
 ### 3.4 Evaluation set (`data/eval/similar_cases.json`, `scripts/eval_similar_cases.py`)
 Hand-written, labelled, **evaluation only** (do not tune on it): 30 archive cases (education, waste, greenery,
 construction, property, finance, taxes, civic budget, registry office, NGOs, promotion, HR, investments,

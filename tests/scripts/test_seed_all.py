@@ -108,3 +108,18 @@ def test_committed_cache_covers_all_seed_applications():
     cache = seed_all.load_cache(seed_all.CACHE_PATH)
     names = {p.name for p in (seed_all.SEED_DIR / "applications").iterdir()}
     assert names == set(cache) and all(e["questions"] and e["summary"] for e in cache.values())
+
+
+def test_open_analyzed_case_is_reindexed_from_its_stored_analysis(session, service, tmp_path):
+    from contracts.models import AnalyzeResult, RequestQuestion
+
+    case = CaseRepository(session).add_with_application(
+        Case(created_date=date(2026, 1, 1), response_deadline=date(2026, 1, 15), status=CaseStatus.PROCESSED),
+        FileData(filename="upload.pdf", file_type=FileType.APPLICATION),
+    )
+    case.analysis_json = AnalyzeResult(
+        case_id=case.id, text="t", questions=[RequestQuestion(text="A?"), RequestQuestion(text="B?")]
+    ).model_dump_json()
+    CaseRepository(session).update(case)
+    seed_all.index_archive(session, service, {}, tmp_path, log=lambda m: None)
+    assert service.store.count_case_points(case.id) == 2

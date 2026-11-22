@@ -182,6 +182,24 @@ class QuestionStore:
             for cid in ranked
         ]
 
+    def case_questions(self, case_ids: Sequence[int]) -> dict[int, list[str]]:
+        """Stored questions of the given cases, in query_id order."""
+        if not case_ids:
+            return {}
+        flt = models.Filter(must=[models.FieldCondition(key="case_id", match=models.MatchAny(any=list(case_ids)))])
+        rows: dict[int, list[tuple[int, str]]] = {}
+        offset = None
+        while True:
+            points, offset = self._client.scroll(
+                self.collection, scroll_filter=flt, limit=1000, offset=offset, with_payload=True, with_vectors=False
+            )
+            for p in points:
+                payload = p.payload or {}
+                rows.setdefault(int(payload["case_id"]), []).append((payload.get("query_id") or 0, payload["question"]))
+            if offset is None:
+                break
+        return {cid: [q for _, q in sorted(items)] for cid, items in rows.items()}
+
     def case_ids(self) -> set[int]:
         """All case ids that have indexed questions (scrolls the payload; fine for thousands of points)."""
         ids: set[int] = set()

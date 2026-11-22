@@ -125,17 +125,17 @@ call) → triage → index the case's questions under `case_id` (calling it agai
 them). `service.delete_case(case_id)` removes a deleted case from the index; `service.health()` for the
 status page. LLM, embedder or Qdrant failures never raise — the result is partial and `warnings` explains.
 
-- **Scores**: cosine similarity of the embeddings rescaled to 0–1 (0 = unrelated, 1 = identical). A case is
-  listed only if one of its questions matches well (`SIMILARITY_LOW`); its `score` says how well it covers
-  **all** questions of the request.
-- **Triage**: `DUPLICATE` if every question matches an earlier case at cosine ≥ `SIMILARITY_DUPLICATE`
-  (0.92); otherwise `OUT_OF_SCOPE` if the router found no unit for any question. Thresholds: `.env`
-  (`SIMILARITY_*`). Calibrated on the sample archive + test requests: real duplicates 0.92–0.99, unrelated
-  Polish requests up to ~0.90 (this model's cosine is compressed), so the "similar" cut-off is 0.91.
+- **Scores**: cosine similarity of the embeddings (dense vectors on period-masked text, prefix "zapytanie: ")
+  rescaled to 0–1; a case's `score` says how well it covers **all** questions of the request.
+- **Same question (DUPLICATE)**: with an LLM, the top 3 candidates whose best question match is ≥
+  `SIMILARITY_LLM_GATE` (0.90) are checked in one LLM call (`DuplicateVerifier`): DUPLICATE = a case covering
+  every question; cases covering ≥ 1 question are listed first. Without an LLM (or on error): DUPLICATE if every
+  question matches at cosine ≥ `SIMILARITY_DUPLICATE` (0.98), listed if one question ≥ `SIMILARITY_LOW` (0.97).
+  Held-out eval (`data/eval`): DUPLICATE precision 15/16, recall 15/15 with the LLM; 6/6 and 6/15 offline.
+- **OUT_OF_SCOPE**: the router found no unit for any question and there is no duplicate.
 - Known limit: the router tends to pick some City Hall unit even when another body holds the data (e.g. the
-  voivodeship conservator → BKZ), so `OUT_OF_SCOPE` fires mainly for clearly external topics (police,
-  courts). Fix planned: external bodies directory (`docs/second_part_engineering_plan.md` §4).
-- 2 LLM calls per request (+1 OCR for scans). First call loads the embedding model (a few seconds).
+  voivodeship conservator → BKZ), so `OUT_OF_SCOPE` fires mainly for clearly external topics.
+- 2–3 LLM calls per request (+1 OCR for scans; the duplicate check only when a candidate is close). First call loads the embedding model (a few seconds).
 
 ### Draft reply (`service.draft_response`, `ai_service/drafting/`)
 
@@ -287,6 +287,7 @@ in-memory Qdrant — no LLM calls, nothing is written to your Qdrant:
 ```bash
 uv run --env-file .env python scripts/eval_similar_cases.py            # metrics + failures
 uv run --env-file .env python scripts/eval_similar_cases.py --all --duplicate 0.95 --low 0.93
+uv run --env-file .env python scripts/eval_similar_cases.py --llm   # with the LLM check (~1 call per query!)
 ```
 
 It is an evaluation set: tune on a different one, report here. Baseline and analysis:

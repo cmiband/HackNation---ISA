@@ -21,7 +21,7 @@ from pathlib import Path
 from qdrant_client import QdrantClient
 
 from ai_service.embeddings import QuestionEmbedder
-from ai_service.llm import RequestAnalysis
+from ai_service.llm import DuplicateVerifier, RequestAnalysis
 from ai_service.parsing import DocumentParser
 from ai_service.routing import DepartmentRouter
 from ai_service.service import AIService, TriageSettings
@@ -158,6 +158,9 @@ def main() -> None:
     parser.add_argument("--duplicate", type=float, help="SIMILARITY_DUPLICATE override (cosine)")
     parser.add_argument("--low", type=float, help="SIMILARITY_LOW override (cosine)")
     parser.add_argument("--all", action="store_true", help="print every query, not only failures")
+    parser.add_argument(
+        "--llm", action="store_true", help="also run the LLM duplicate check (1 call per query above the gate!)"
+    )
     args = parser.parse_args()
 
     triage = TriageSettings.from_env()
@@ -169,11 +172,14 @@ def main() -> None:
     dataset = load_dataset()
     embedder = QuestionEmbedder.from_env()
     service = build_service(dataset, embedder, VectorStoreSettings.from_env().dense_size, triage)
+    if args.llm:
+        service.verifier = DuplicateVerifier.from_env()
     outcomes = evaluate(service, dataset)
     cosines = gold_cosines(service, dataset)
     summary = summarize(outcomes)
 
-    print(f"model: {embedder.settings.model_name}  thresholds: duplicate={triage.duplicate} low={triage.low}")
+    mode = "LLM duplicate check + offline fallback" if args.llm else "offline rule only"
+    print(f"model: {embedder.settings.model_name}  thresholds: duplicate={triage.duplicate} low={triage.low}  ({mode})")
     print(f"archive: {len(dataset['archive'])} cases, queries: {len(outcomes)}\n")
     print("accuracy per kind (expected triage / listing):")
     for kind, pair in summary["per_kind_accuracy"].items():

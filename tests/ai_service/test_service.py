@@ -241,3 +241,52 @@ def test_out_of_scope_carries_the_competent_body(archive):
     result = svc.analyze_request(AnalyzeInput(case_id=11, text="tram"))
     assert result.triage.kind == TriageKind.OUT_OF_SCOPE and result.triage.competent_body_id == "zdmikp"
     assert result.questions[0].external_body_id == "zdmikp" and "ZDMiKP" in result.triage.reason
+
+
+
+class _Verifier:
+    """Stands in for DuplicateVerifier: returns a fixed verdict and records the candidates it got."""
+
+    uses_llm = True
+
+    def __init__(self, verdict=None, error=False):
+        self.verdict, self.error, self.calls = verdict or {}, error, []
+
+    def covered(self, questions, candidates):
+        self.calls.append((list(questions), dict(candidates)))
+        if self.error:
+            raise RuntimeError("quota")
+        return self.verdict
+
+
+def test_llm_confirms_a_reworded_duplicate_below_the_offline_threshold(archive):
+    svc = service(["Ile uczniowie są w szkołach?"], store=archive)  # cosine ~0.98 to case 1 < duplicate 0.99
+    svc.triage_settings = TriageSettings(duplicate=0.99, low=0.995, floor=0.5, llm_gate=0.9)
+    svc.verifier = _Verifier({1: {1}})
+    result = svc.analyze_request(AnalyzeInput(case_id=20, text="x"))
+    assert result.triage.kind == TriageKind.DUPLICATE and result.triage.duplicate_case_ids == [1]
+    assert [c.case_id for c in result.similar_cases] == [1]  # listed although below `low`: LLM-confirmed
+    questions, candidates = svc.verifier.calls[0]
+    assert candidates == {1: ["Liczba uczniów w szkołach."]}
+
+
+def test_llm_rejects_an_offline_duplicate(archive):
+    svc = service(["Liczba uczniów w szkołach."], store=archive)
+    svc.verifier = _Verifier({1: set()})
+    result = svc.analyze_request(AnalyzeInput(case_id=21, text="x"))
+    assert result.triage.kind == TriageKind.STANDARD
+
+
+def test_no_llm_call_below_the_gate(archive):
+    svc = service(["Rozkład jazdy tramwaj linii 2."], store=archive)
+    svc.triage_settings = TriageSettings(duplicate=0.95, low=0.8, floor=0.5, llm_gate=0.9)
+    svc.verifier = _Verifier()
+    svc.analyze_request(AnalyzeInput(case_id=22, text="x"))
+    assert svc.verifier.calls == []
+
+
+def test_llm_failure_falls_back_to_the_offline_rule(archive):
+    svc = service(["Liczba uczniów w szkołach."], store=archive)
+    svc.verifier = _Verifier(error=True)
+    result = svc.analyze_request(AnalyzeInput(case_id=23, text="x"))
+    assert result.triage.kind == TriageKind.DUPLICATE and any("offline rule" in w for w in result.warnings)

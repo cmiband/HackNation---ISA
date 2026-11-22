@@ -10,12 +10,14 @@ letter date) → embed the questions → similar-case search over the whole arch
 Failures of the LLM, embedder or vector DB never raise: the result is partial and `warnings` says what is
 missing. Only an unreadable file raises `contracts.protocol.DocumentReadError`.
 
-Similarity thresholds (cosine of the dense embeddings, calibrated on the sample requests; see
-docs/second_part_engineering_plan.md §3.3). mmlw-roberta-base gives unrelated Polish requests up to ~0.90
-(shared "Bydgoszcz", "ulica", "umowa" context) and real duplicates ≥ 0.92, so the band is narrow:
-    SIMILARITY_DUPLICATE  (0.92) every question of the request matches the case at least this well -> DUPLICATE
-    SIMILARITY_LOW        (0.91) a case is listed as similar only if one of its questions matches this well
-    SIMILARITY_FLOOR      (0.75) cosine of unrelated texts for this model; mapped to score 0.0 in the result
+Similar-case decision (measured on data/eval, held-out; docs/second_part_engineering_plan.md §3.5):
+- dense vectors are computed on period-masked text with the "zapytanie: " prefix (see ai_service/embeddings);
+- with an LLM: the top SIMILARITY_LLM_CANDIDATES (3) cases whose best question match is >= SIMILARITY_LLM_GATE
+  (0.90) go to one DuplicateVerifier call; DUPLICATE = a case covering every question; cases covering >= 1
+  question are listed first. Nothing above the gate -> no call. LLM error -> offline rule + warning;
+- offline rule (no LLM): DUPLICATE if every question matches the case at cosine >= SIMILARITY_DUPLICATE (0.98);
+  a case is listed if one of its questions matches >= SIMILARITY_LOW (0.97);
+- SIMILARITY_FLOOR (0.85): cosine mapped to score 0.0 in the result (display only).
 OUT_OF_SCOPE = the router found no unit for any question and there is no duplicate.
 """
 
@@ -29,7 +31,7 @@ from threading import Lock
 
 from ai_service.drafting import ReplyDrafter, placeholders, redirect_body, template_body
 from ai_service.embeddings import QuestionEmbedder
-from ai_service.llm import RequestAnalysis, RequestAnalyzer
+from ai_service.llm import DuplicateVerifier, RequestAnalysis, RequestAnalyzer
 from ai_service.llm.analysis import fallback_analysis
 from ai_service.llm.config import LLMSettings
 from ai_service.llm.model_factory import model_names
@@ -56,9 +58,11 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class TriageSettings:
-    duplicate: float = 0.92
-    low: float = 0.91
-    floor: float = 0.75
+    duplicate: float = 0.98
+    low: float = 0.97
+    floor: float = 0.85
+    llm_gate: float = 0.90
+    llm_candidates: int = 3
     max_similar_cases: int = 5
 
     @classmethod
@@ -70,6 +74,8 @@ class TriageSettings:
             duplicate=num("SIMILARITY_DUPLICATE", cls.duplicate),
             low=num("SIMILARITY_LOW", cls.low),
             floor=num("SIMILARITY_FLOOR", cls.floor),
+            llm_gate=num("SIMILARITY_LLM_GATE", cls.llm_gate),
+            llm_candidates=int(num("SIMILARITY_LLM_CANDIDATES", cls.llm_candidates)),
         )
 
     def scale(self, cosine: float) -> float:
@@ -91,12 +97,14 @@ class AIService:
         triage: TriageSettings | None = None,
         llm_provider: str = "none",
         drafter: ReplyDrafter | None = None,
+        verifier: DuplicateVerifier | None = None,
     ) -> None:
         self.parser = parser
         self.analyzer = analyzer
         self.router = router
         self.embedder = embedder
         self.drafter = drafter or ReplyDrafter(None)
+        self.verifier = verifier or DuplicateVerifier(None)
         self.triage_settings = triage or TriageSettings()
         self.llm_provider = llm_provider
         self._store = store
@@ -114,6 +122,7 @@ class AIService:
             triage=TriageSettings.from_env(),
             llm_provider=names[0] if names else "none",
             drafter=ReplyDrafter.from_env(),
+            verifier=DuplicateVerifier.from_env(),
         )
 
     # --- protocol ---------------------------------------------------------------------------------------
@@ -144,7 +153,8 @@ class AIService:
         else:
             warnings.append("No questions were found in the request.")
 
-        similar, duplicates = self._similar_cases(hits, len(questions))
+        confirmed = self._confirm_duplicates(questions, hits, warnings) if hits else None
+        similar, duplicates = self._similar_cases(hits, len(questions), confirmed)
         routing = self._route(questions, warnings)
         triage = self._triage(routing, duplicates)
         redirect = self._redirect_draft(analysis.subject, triage) if triage.kind == TriageKind.OUT_OF_SCOPE else None
@@ -278,22 +288,52 @@ class AIService:
             warnings.append("Department suggestions are unavailable (LLM error).")
             return DepartmentRouter(None, self.router.directory, self.router.bodies).route(questions)
 
-    def _similar_cases(
-        self, hits: Sequence[SimilarCaseHit], question_count: int
-    ) -> tuple[list[SimilarCase], list[int]]:
-        """Contract objects (relevant cases only, best first) and the ids of duplicate cases."""
-        s = self.triage_settings
+    @staticmethod
+    def _ranked(hits: Sequence[SimilarCaseHit], question_count: int) -> list[tuple[float, float, SimilarCaseHit]]:
+        """(coverage = worst question's best cosine, best cosine, hit), best first."""
         scored = []
         for hit in hits:
             per_question = hit.question_scores or [0.0] * question_count
             scored.append((min(per_question), max(per_question), hit))
-        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return sorted(scored, key=lambda item: (item[0], item[1]), reverse=True)
 
-        duplicates = [hit.case_id for coverage, _, hit in scored if coverage >= s.duplicate]
+    def _confirm_duplicates(
+        self, questions: Sequence[str], hits: Sequence[SimilarCaseHit], warnings: list[str]
+    ) -> dict[int, set[int]] | None:
+        """LLM verdict {case id: covered question numbers}; None = no LLM / failure -> offline rule."""
+        if not self.verifier.uses_llm:
+            return None
+        s = self.triage_settings
+        candidates = [hit.case_id for _, top, hit in self._ranked(hits, len(questions)) if top >= s.llm_gate]
+        candidates = candidates[: s.llm_candidates]
+        if not candidates:
+            return {}  # nothing close enough: no call, nothing confirmed
+        try:
+            case_questions = self._get_store().case_questions(candidates)
+            return self.verifier.covered(questions, {c: case_questions.get(c, []) for c in candidates})
+        except Exception:
+            log.exception("duplicate confirmation failed")
+            warnings.append("Duplicate check by the LLM is unavailable: the stricter offline rule was used.")
+            return None
+
+    def _similar_cases(
+        self, hits: Sequence[SimilarCaseHit], question_count: int, confirmed: dict[int, set[int]] | None = None
+    ) -> tuple[list[SimilarCase], list[int]]:
+        """Contract objects (relevant cases only, best first) and the ids of duplicate cases.
+
+        `confirmed` (LLM verdict) decides DUPLICATE and puts confirmed cases first; None = offline thresholds.
+        """
+        s = self.triage_settings
+        scored = self._ranked(hits, question_count)
+        if confirmed is None:
+            duplicates = [hit.case_id for coverage, _, hit in scored if coverage >= s.duplicate]
+            listed = [item for item in scored if item[1] >= s.low]
+        else:
+            duplicates = [hit.case_id for _, _, hit in scored if len(confirmed.get(hit.case_id, ())) == question_count]
+            first = [item for item in scored if confirmed.get(item[2].case_id)]
+            listed = first + [item for item in scored if item[1] >= s.low and item not in first]
         similar = []
-        for coverage, top, hit in scored:
-            if top < s.low:
-                continue
+        for coverage, _, hit in listed:
             per_query: dict[str, QuestionMatch] = {}
             for m in hit.matches:
                 if m.dense_score is None:
