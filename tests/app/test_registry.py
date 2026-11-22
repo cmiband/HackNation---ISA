@@ -158,8 +158,8 @@ def test_request_case_analysis_creates_one_request_per_known_department(session,
     ])
 
 
-def test_request_case_analysis_rejects_non_new_case(session):
-    case_id = _add_case(session, CaseStatus.PROCESSED)
+def test_request_case_analysis_rejects_case_after_requests_were_sent(session):
+    case_id = _add_case(session, CaseStatus.REQUEST_SENT)
 
     with pytest.raises(InvalidStatusTransitionError):
         request_case_analysis(case_id, session=session, ai_service=_FakeAIService([]))
@@ -310,3 +310,19 @@ def test_add_department_request_manually(session):
     case.analysis_json = AnalyzeResult(case_id=case_id, text="t", questions=[RequestQuestion(text="A?"),
                                                                              RequestQuestion(text="B?")]).model_dump_json()
     assert numbered_questions(case) == "1. A?\n2. B?"
+
+
+def test_reanalysis_replaces_suggested_requests_and_drops_the_draft(session, tmp_path):
+    case_id = _add_case(session, CaseStatus.NEW)
+    ids = _add_departments(session, "WE", "WF")
+    (tmp_path / "a.pdf").write_bytes(b"%PDF-1.4")
+    request_case_analysis(case_id, session=session, applications_dir=tmp_path,
+                          ai_service=_FakeAIService([RequestQuestion(text="Q1", departments=["WE"])]))
+    case = CaseRepository(session).get_case_by_id(case_id)
+    case.draft_json = '{"body": "stary projekt"}'
+    CaseRepository(session).update(case)
+    case = request_case_analysis(case_id, session=session, applications_dir=tmp_path,
+                                 ai_service=_FakeAIService([RequestQuestion(text="Q2", departments=["WF"])]))
+    requests = DepartmentRequestRepository(session).get_dep_requests_by_case_id(case_id)
+    assert [(r.department_id, r.request_text) for r in requests] == [(ids["WF"], "1. Q2")]
+    assert case.status == CaseStatus.PROCESSED and case.draft_json is None and load_analysis(case).questions[0].text == "Q2"

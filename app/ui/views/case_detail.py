@@ -1,6 +1,5 @@
 """Case detail popup opened from the Dashboard (one button per case row)."""
 
-import base64
 import html
 import io
 from collections.abc import Callable
@@ -300,15 +299,6 @@ def _render_request_rows(rows: list[DepartmentRequestRow], case_status: CaseStat
             first_col.markdown(":material/task_alt:", help="Zapytanie zakończone")
 
 
-def pdf_iframe_html(data: bytes, height: int = PREVIEW_HEIGHT_PX) -> str:
-    """Return an ``<iframe>`` that shows ``data`` (PDF bytes) in the browser's PDF viewer."""
-    encoded = base64.b64encode(data).decode("ascii")
-    return (
-        f'<iframe src="data:application/pdf;base64,{encoded}" '
-        f'width="100%" height="{height}" style="border: none;" title="PDF preview"></iframe>'
-    )
-
-
 def _paragraph_html(paragraph: Paragraph) -> str:
     runs = []
     for run in paragraph.runs:
@@ -391,12 +381,18 @@ def render_file_preview(path: Path) -> None:
 
 
 def render_pdf_preview(path: Path) -> None:
-    """Show a PDF preview. Uses ``st.pdf`` if its extra is installed, else an inline iframe."""
+    """PDF viewer component (``streamlit[pdf]``). A stable key keeps the viewer mounted across reruns.
+
+    No ``data:`` iframe fallback: browsers often download such PDFs instead of showing them, which made every
+    button click in the popup trigger a download. Without the viewer the file is offered for download only.
+    """
     data = path.read_bytes()
     try:
-        st.pdf(data, height=PREVIEW_HEIGHT_PX)
-    except Exception:  # st.pdf needs the optional ``streamlit[pdf]`` extra
-        st.markdown(pdf_iframe_html(data), unsafe_allow_html=True)
+        st.pdf(data, height=PREVIEW_HEIGHT_PX, key=f"pdf_preview_{path.name}")
+    except Exception:  # viewer component not installed
+        st.info("Podgląd PDF jest niedostępny w tej instalacji.")
+        st.download_button("Pobierz PDF", data, file_name=path.name, mime="application/pdf",
+                           key=f"pdf_download_{path.name}")
 
 
 def _run_action(detail: CaseDetail, action: DetailAction) -> None:
@@ -480,6 +476,11 @@ def show_case_detail(case_id: int) -> None:
     st.divider()
 
     view = load_analysis_view(detail.case_id) if detail.status != CaseStatus.NEW else None
+    if view is not None and detail.status == CaseStatus.PROCESSED and st.button(
+        "Analizuj ponownie", key="case_detail_reanalyze",
+        help="Nowa analiza zastąpi obecną oraz niewysłane propozycje zapytań i usunie projekt odpowiedzi.",
+    ):
+        _run_action(detail, DetailAction("Analizuj ponownie", DetailActionKind.ANALYZE))
     if view is not None:
         if shortcut_banner_visible(view, detail.status, detail.case_id):
             render_shortcut_banner(view, detail.case_id, on_accept=accept_shortcut)

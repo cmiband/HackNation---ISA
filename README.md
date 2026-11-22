@@ -326,6 +326,11 @@ archive cases (e.g. after a prompt change) — commit the updated `analysis.json
    sprawie* (status: Odpowiedź przygotowana) → *Oznacz: odpowiedź wysłana*.
 5. **Anonimizacja** tab — anonymize any document without a case.
 
+`AI_MOCK=1` in `.env` = demo mode: every analysis / draft is the same canned example (a warning banner is shown).
+Use `AI_MOCK=0` for real analysis. Cases analyzed in demo mode can be re-analyzed with **Analizuj ponownie**
+(status Processed; replaces the analysis and the not-yet-sent suggestions, removes the draft). PDF previews use
+the `streamlit[pdf]` viewer (no data-URL iframe, which browsers tend to download).
+
 ## Running with Docker
 
 ```bash

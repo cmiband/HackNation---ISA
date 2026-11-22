@@ -136,6 +136,10 @@ def complete_department_request(
     return _advance_department_request(request_id, RequestStatus.SENT, session)
 
 
+# NEW: first analysis; PROCESSED: re-analysis (e.g. after a mock run or a changed file), before requests are sent.
+ANALYZABLE_STATUSES = frozenset({CaseStatus.NEW, CaseStatus.PROCESSED})
+
+
 def request_case_analysis(
     case_id: int,
     *,
@@ -143,7 +147,7 @@ def request_case_analysis(
     ai_service: AIServiceProtocol | None = None,
     applications_dir: Path | None = None,
 ) -> Case:
-    """Analyze a ``NEW`` case and move it to ``PROCESSED``.
+    """Analyze a ``NEW`` case (or re-analyze a ``PROCESSED`` one) and move it to ``PROCESSED``.
 
     Calls ``analyze_request`` (default: the real ``AIService`` via ``get_ai_service()``; env
     ``AI_MOCK=1`` switches to ``MockAIService``; the UI passes a process-cached service), stores the whole
@@ -158,10 +162,15 @@ def request_case_analysis(
         case = repo.get_case_by_id(case_id)
         if case is None or case.id is None:
             raise LookupError(f"Case {case_id} does not exist.")
-        if case.status != CaseStatus.NEW:
+        if case.status not in ANALYZABLE_STATUSES:
             raise InvalidStatusTransitionError(
-                f"Case {case_id} has status {case.status.value}; only New cases can be analyzed."
+                f"Sprawa {case_id} ma status {case.status.value}; analizę można wykonać tylko przed wysłaniem zapytań."
             )
+        if case.status == CaseStatus.PROCESSED:  # re-analysis: replace suggestions, drop the old draft
+            for request in DepartmentRequestRepository(db).get_dep_requests_by_case_id(case.id):
+                if request.request_status == RequestStatus.SUGGESTED:
+                    db.delete(request)
+            case.draft_json = None
 
         service = ai_service if ai_service is not None else get_ai_service()
         result = service.analyze_request(
