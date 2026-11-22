@@ -104,7 +104,7 @@ def save_response(
         if case is None:
             raise LookupError(f"Case {case_id} does not exist.")
         if case.status not in EXPORT_FROM:
-            raise ValueError(f"Case {case_id} has status {case.status.value}; the reply cannot be saved now.")
+            raise ValueError(f"Sprawa {case_id} ma status {case.status.value}; nie można teraz zapisać odpowiedzi.")
         target_dir = responses_dir or settings.responses_dir
         target_dir.mkdir(parents=True, exist_ok=True)
         path = unique_target_path(target_dir, response_filename(case.document_number, case_id, suffix))

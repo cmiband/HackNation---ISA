@@ -12,7 +12,7 @@ We are building an **Intelligent Assistant for Public Officials** to handle **Ac
    - The MVP uses **cloud LLM APIs only**; no local LLM is run during the hackathon.
    - All LLM calls go through a provider abstraction (§6.3) so production can switch to a local model by configuration, 100% offline.
    - **Embeddings run locally** already in the MVP (sentence-transformers, model baked into the Docker image).
-4. **Language:** All code, documentation, database schemas, UI labels, status names, and system prompts must be written in **English**, while AI modules must seamlessly process input documents written in **Polish** (or English). *(Open question: Polish UI labels for the officials/jury — see §10.)*
+4. **Language:** Code, documentation, database schemas, status values and system prompts are in **English**; AI modules process **Polish** documents. **UI labels and user-facing messages are Polish** (team decision; `app/ui/i18n.py` maps status values to Polish labels).
 5. **Speed & Simplicity Priority:** Favor lightweight, zero-configuration, local-first tools over complex infrastructure.
 6. **Test data:** the team's test data is already anonymized, so sending it to the LLM API during the MVP is acceptable. Production sends nothing outside the city network.
 

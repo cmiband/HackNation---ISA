@@ -26,8 +26,8 @@ def test_summarize_rows():
     ]
     rows = summarize(files)
     assert rows == [
-        {"#": 1, "File name": "wniosek.PDF", "Format": "PDF", "Size": "1.0 KB"},
-        {"#": 2, "File name": "zalacznik.docx", "Format": "Word", "Size": "300 B"},
+        {"#": 1, "Nazwa pliku": "wniosek.PDF", "Format": "PDF", "Rozmiar": "1.0 KB"},
+        {"#": 2, "Nazwa pliku": "zalacznik.docx", "Format": "Word", "Rozmiar": "300 B"},
     ]
 
 
@@ -44,7 +44,7 @@ def test_split_files_rejects_wrong_types():
     assert [name for name, _ in rejected] == ["old.doc", "photo.jpg", "README"]
     assert ".docx" in rejected[0][1]
     assert "(.jpg)" in rejected[1][1]
-    assert "no extension" in rejected[2][1]
+    assert "brak rozszerzenia" in rejected[2][1]
 
 
 def test_load_files_saves_all_as_applications(tmp_path):

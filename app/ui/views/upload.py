@@ -46,9 +46,9 @@ def summarize(files: Sequence[_NamedFile]) -> list[dict[str, str | int]]:
     return [
         {
             "#": i,
-            "File name": f.name,
-            "Format": _FORMAT_LABELS.get(Path(f.name).suffix.lower(), "Unknown"),
-            "Size": format_size(f.size),
+            "Nazwa pliku": f.name,
+            "Format": _FORMAT_LABELS.get(Path(f.name).suffix.lower(), "Nieznany"),
+            "Rozmiar": format_size(f.size),
         }
         for i, f in enumerate(files, start=1)
     ]
@@ -62,9 +62,9 @@ def split_files(files: Sequence[_NamedFile]) -> tuple[list, list[tuple[str, str]
         if suffix.lstrip(".") in ALLOWED_EXTENSIONS:
             accepted.append(f)
         elif suffix == ".doc":
-            rejected.append((f.name, "old Word format (.doc) — save it as .docx and upload again"))
+            rejected.append((f.name, "stary format Word (.doc) — zapisz jako .docx i dodaj ponownie"))
         else:
-            rejected.append((f.name, f"unsupported type ({suffix or 'no extension'})"))
+            rejected.append((f.name, f"nieobsługiwany typ ({suffix or 'brak rozszerzenia'})"))
     return accepted, rejected
 
 
@@ -129,13 +129,13 @@ def _accept(files: list) -> None:
 def _reject() -> None:
     # A new widget key is the documented way to clear st.file_uploader.
     st.session_state.uploader_key += 1
-    st.session_state.upload_flash = "Upload rejected — the selected files were discarded."
+    st.session_state.upload_flash = "Odrzucono — wybrane pliki nie zostały zapisane."
 
 
 def render() -> None:
-    st.subheader("📤 Upload Request Files")
+    st.subheader("📤 Dodaj wnioski")
     st.caption(
-        "Drag and drop one or more incoming UDIP application files. Allowed formats: PDF and Word (.docx)."
+        "Przeciągnij jeden lub więcej wniosków o udostępnienie informacji publicznej. Dozwolone formaty: PDF i Word (.docx)."
     )
 
     st.session_state.setdefault("uploader_key", 0)
@@ -143,7 +143,7 @@ def render() -> None:
     # No `type=` filter on purpose: with it, Streamlit silently drops wrong files before Python sees them,
     # so we could not tell the user how many were excluded. We validate ourselves in split_files().
     dropped = st.file_uploader(
-        "Drop request files here",
+        "Upuść pliki wniosków tutaj",
         accept_multiple_files=True,
         key=f"uploader_{st.session_state.uploader_key}",
     )
@@ -157,22 +157,22 @@ def render() -> None:
     if pending := st.session_state.pop("pending_upload", None):
         # Clear any leftover summary/buttons immediately before saving starts.
         body.empty()
-        with status_slot.status(f"Saving {len(pending)} application(s)...", expanded=True) as status:
-            st.write("Saving application files to storage...")
+        with status_slot.status(f"Zapisywanie wniosków: {len(pending)}...", expanded=True) as status:
+            st.write("Zapisywanie plików wniosków...")
             saved_paths = load_files(
                 pending,
                 on_file=lambda idx, total, f, path: st.write(
-                    f"[{idx}/{total}] Saved **{path.name}** → `applications/`"
+                    f"[{idx}/{total}] Zapisano **{path.name}** → `applications/`"
                 ),
                 assignee_id=get_current_user_id(),
             )
             count = len(saved_paths)
             status.update(
-                label=f"{count} application file(s) saved successfully!",
+                label=f"Zapisano wnioski: {count}. Otwórz je w zakładce „Rejestr”.",
                 state="complete",
                 expanded=False,
             )
-        st.success(f"{count} application file(s) saved successfully!")
+        st.success(f"Zapisano wnioski: {count}. Otwórz je w zakładce „Rejestr”, aby wykonać analizę.")
         return
 
     if not dropped:
@@ -183,7 +183,7 @@ def render() -> None:
         if rejected:
             lines = "\n".join(f"- **{name}** — {reason}" for name, reason in rejected)
             st.error(
-                f"**{len(rejected)} file(s) not included** — only PDF and Word (.docx) are allowed:\n\n{lines}",
+                f"**Pominięte pliki: {len(rejected)}** — dozwolone są tylko PDF i Word (.docx):\n\n{lines}",
                 icon="🚫",
             )
 
@@ -191,9 +191,9 @@ def render() -> None:
             return
 
         total = format_size(sum(f.size for f in files))
-        st.markdown(f"**Summary:** {len(files)} application file(s), {total} in total")
+        st.markdown(f"**Podsumowanie:** wnioski: {len(files)}, łącznie {total}")
         st.dataframe(summarize(files), hide_index=True)
 
         col_accept, col_reject, _ = st.columns([1, 1, 4])
-        col_accept.button("✅ Accept upload", type="primary", on_click=_accept, args=(files,))
-        col_reject.button("❌ Reject upload", on_click=_reject)
+        col_accept.button("✅ Zatwierdź", type="primary", on_click=_accept, args=(files,))
+        col_reject.button("❌ Odrzuć", on_click=_reject)

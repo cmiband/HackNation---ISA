@@ -149,9 +149,9 @@ class AIService:
                 )
             except Exception:
                 log.exception("similar-case search failed (case %s)", case_id)
-                warnings.append("Similar-case search is unavailable (embedding model or vector DB error).")
+                warnings.append("Wyszukiwanie podobnych spraw jest niedostępne (błąd modelu embeddingów lub bazy wektorowej).")
         else:
-            warnings.append("No questions were found in the request.")
+            warnings.append("Nie znaleziono pytań we wniosku.")
 
         confirmed = self._confirm_duplicates(questions, hits, warnings) if hits else None
         similar, duplicates = self._similar_cases(hits, len(questions), confirmed)
@@ -186,7 +186,7 @@ class AIService:
         archived = self._read_document(input_data.archived_reply) if input_data.archived_reply else None
         warnings: list[str] = []
         if not documents and not archived:
-            warnings.append("No documents and no archived reply: the body is a template to fill in.")
+            warnings.append("Brak dokumentów i poprzedniej odpowiedzi: projekt to szablon do uzupełnienia.")
             body = template_body(questions, [])
             return DraftResult(
                 body=body,
@@ -198,7 +198,7 @@ class AIService:
             out = self.drafter.draft(questions, documents, archived)
         except Exception:
             log.exception("reply drafting failed")
-            warnings.append("LLM unavailable: the documents are inserted as they are — edit the draft.")
+            warnings.append("Model językowy niedostępny: dokumenty wstawiono bez zmian — zredaguj projekt.")
             body = template_body(questions, documents + ([archived] if archived else []))
             return DraftResult(body=body, values_to_verify=placeholders(body), warnings=warnings)
         values = [v for v in out.values_to_verify if v in out.body] + placeholders(out.body)
@@ -277,7 +277,7 @@ class AIService:
             return self.analyzer.analyze(text)
         except Exception:
             log.exception("request analysis LLM call failed")
-            warnings.append("LLM unavailable: the whole text is used as one question, summary = start of the text.")
+            warnings.append("Model językowy niedostępny: cały tekst potraktowano jako jedno pytanie, streszczenie = początek tekstu.")
             return fallback_analysis(text)
 
     def _route(self, questions: Sequence[str], warnings: list[str]) -> RoutingResult:
@@ -285,7 +285,7 @@ class AIService:
             return self.router.route(questions)
         except Exception:
             log.exception("department routing failed")
-            warnings.append("Department suggestions are unavailable (LLM error).")
+            warnings.append("Sugestie jednostek są niedostępne (błąd modelu językowego).")
             return DepartmentRouter(None, self.router.directory, self.router.bodies).route(questions)
 
     @staticmethod
@@ -313,7 +313,7 @@ class AIService:
             return self.verifier.covered(questions, {c: case_questions.get(c, []) for c in candidates})
         except Exception:
             log.exception("duplicate confirmation failed")
-            warnings.append("Duplicate check by the LLM is unavailable: the stricter offline rule was used.")
+            warnings.append("Weryfikacja duplikatów przez model językowy niedostępna: zastosowano ostrzejszą regułę offline.")
             return None
 
     def _similar_cases(
@@ -357,7 +357,7 @@ class AIService:
             return Triage(
                 kind=TriageKind.DUPLICATE,
                 duplicate_case_ids=duplicates,
-                reason="Practically the same questions were already handled in an earlier case.",
+                reason="Praktycznie te same pytania rozpatrzono we wcześniejszej sprawie.",
             )
         no_department = bool(routing.questions) and not routing.all_departments()
         if self.router.uses_llm and no_department:
@@ -367,9 +367,9 @@ class AIService:
                 kind=TriageKind.OUT_OF_SCOPE,
                 competent_body_id=body_id,
                 reason=(
-                    f"No City Hall unit holds this information; it is held by {body.name}."
+                    f"Żadna jednostka Urzędu nie posiada tych informacji; dysponent: {body.name}."
                     if body
-                    else "No City Hall unit or municipal unit holds this information (e.g. a state body)."
+                    else "Ani Urząd, ani jednostki miejskie nie posiadają tych informacji (np. organ państwowy)."
                 ),
             )
         return Triage()
@@ -387,7 +387,7 @@ class AIService:
                 self.index_case(case_id, questions, file_id=filename or None)
         except Exception:
             log.exception("indexing case %s failed", case_id)
-            warnings.append("The case could not be saved in the similar-case index; analyze it again later.")
+            warnings.append("Nie zapisano sprawy w indeksie podobnych spraw; wykonaj analizę ponownie później.")
 
     def _get_store(self) -> QuestionStore:
         """Connect lazily, so the app starts even if Qdrant is not up yet; retried on the next call."""

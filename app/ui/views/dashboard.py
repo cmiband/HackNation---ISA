@@ -11,18 +11,28 @@ from sqlmodel import Session
 from app.db.engine import engine
 from app.db.models import Case
 from app.db.repository import CaseRepository
+from app.ui.i18n import status_label
 from app.ui.views.case_detail import show_case_detail
 from contracts.enums import CaseStatus
 
-DASHBOARD_COLUMNS = [
-    "#",
-    "Initials",
-    "Topic",
-    "Upload date",
-    "Deadline",
-    "Days to deadline",
-    "Reply date",
+COL_NO, COL_INITIALS, COL_NUMBER, COL_TOPIC = "Lp.", "Inicjały", "Numer sprawy", "Przedmiot wniosku"
+COL_RECEIVED, COL_DEADLINE, COL_DAYS, COL_REPLY, COL_STATUS = (
+    "Data wpływu",
+    "Termin odpowiedzi",
+    "Pozostało dni",
+    "Data odpowiedzi",
     "Status",
+)
+DASHBOARD_COLUMNS = [
+    COL_NO,
+    COL_INITIALS,
+    COL_NUMBER,
+    COL_TOPIC,
+    COL_RECEIVED,
+    COL_DEADLINE,
+    COL_DAYS,
+    COL_REPLY,
+    COL_STATUS,
 ]
 
 TOP_CASES_LIMIT = 10
@@ -88,19 +98,20 @@ def build_dashboard_frame(
         days_to_deadline = None if replied else (case.response_deadline - ref_today).days
         rows.append(
             {
-                "#": idx,
-                "Initials": case.assignee.initials if case.assignee is not None else "",
-                "Topic": case.topic or "",
-                "Upload date": case.created_date,
-                "Deadline": case.response_deadline,
-                "Days to deadline": days_to_deadline,
-                "Reply date": case.response_date,
-                "Status": case.status.value,
+                COL_NO: idx,
+                COL_INITIALS: case.assignee.initials if case.assignee is not None else "",
+                COL_NUMBER: case.document_number or "",
+                COL_TOPIC: case.topic or "",
+                COL_RECEIVED: case.created_date,
+                COL_DEADLINE: case.response_deadline,
+                COL_DAYS: days_to_deadline,
+                COL_REPLY: case.response_date,
+                COL_STATUS: status_label(case.status),
             }
         )
 
     df = pd.DataFrame(rows, columns=DASHBOARD_COLUMNS)
-    df["Days to deadline"] = pd.array(df["Days to deadline"], dtype="Int64")
+    df[COL_DAYS] = pd.array(df[COL_DAYS], dtype="Int64")
     return df
 
 
@@ -122,14 +133,14 @@ def select_dashboard_rows(
     order = sorted(
         range(len(df)),
         key=lambda i: (
-            pd.isna(df.iloc[i]["Days to deadline"]),
-            df.iloc[i]["Deadline"],
+            pd.isna(df.iloc[i][COL_DAYS]),
+            df.iloc[i][COL_DEADLINE],
             i,
         ),
     )[:top_n]
     selected_ids = [case_ids[i] for i in order]
     selected_df = df.iloc[order].copy().reset_index(drop=True)
-    selected_df["#"] = range(1, len(selected_df) + 1)
+    selected_df[COL_NO] = range(1, len(selected_df) + 1)
     return selected_ids, selected_df
 
 
@@ -164,7 +175,7 @@ def load_dashboard_data(
 
 
 # Relative column widths: data columns + the "Details" button column.
-_COLUMN_WEIGHTS = [0.5, 0.8, 4, 1.2, 1.4, 1.2, 1.2, 1.6, 0.8]
+_COLUMN_WEIGHTS = [0.5, 0.8, 1.9, 3.4, 1.1, 1.3, 0.9, 1.1, 1.6, 0.6]
 
 
 def _format_cell(value: object) -> str:
@@ -176,11 +187,11 @@ def _format_cell(value: object) -> str:
 
 
 def render() -> None:
-    st.subheader("📊 Case Dashboard")
+    st.subheader("📊 Rejestr wniosków")
     with Session(engine) as db:
         years = case_years(CaseRepository(db).get_all_cases())
     if not years:
-        st.caption("No cases registered yet — upload applications in the Upload Request tab.")
+        st.caption("Brak spraw w rejestrze — dodaj wnioski w zakładce „Dodaj wnioski”.")
         return
 
     ctrl_left, ctrl_year, ctrl_right = st.columns([4, 1, 1.2], vertical_alignment="center")
@@ -194,22 +205,22 @@ def render() -> None:
     )
     case_ids, df = load_dashboard_data(year=year)
     if df.empty:
-        ctrl_left.caption("No cases in the selected year.")
+        ctrl_left.caption("Brak spraw w wybranym roku.")
         return
 
     total_cases = len(df)
-    show_all = ctrl_right.toggle("Show all cases", value=False, key="dashboard_show_all")
+    show_all = ctrl_right.toggle("Pokaż wszystkie", value=False, key="dashboard_show_all")
 
     visible_ids, visible_df = select_dashboard_rows(case_ids, df, show_all=show_all)
     if show_all:
         ctrl_left.caption(
-            f"Showing all **{total_cases}** case(s), ordered oldest to newest.  \n"
-            "Deadline highlight: 🔴 Overdue / Today · 🟠 Tomorrow · 🟡 Within 3 days"
+            f"Wszystkie sprawy: **{total_cases}**, od najstarszej do najnowszej.  \n"
+            "Wyróżnienie terminu: 🔴 po terminie / dziś · 🟠 jutro · 🟡 do 3 dni"
         )
     else:
         ctrl_left.caption(
-            f"Showing top **{len(visible_df)}** of **{total_cases}** case(s) by nearest deadline.  \n"
-            "Deadline highlight: 🔴 Overdue / Today · 🟠 Tomorrow · 🟡 Within 3 days"
+            f"Najpilniejsze **{len(visible_df)}** z **{total_cases}** spraw (najbliższy termin).  \n"
+            "Wyróżnienie terminu: 🔴 po terminie / dziś · 🟠 jutro · 🟡 do 3 dni"
         )
 
     header = st.columns(_COLUMN_WEIGHTS)
@@ -220,13 +231,13 @@ def render() -> None:
         for case_id, (_, row) in zip(visible_ids, visible_df.iterrows(), strict=True):
             cols = st.columns(_COLUMN_WEIGHTS, vertical_alignment="center")
             for col, name in zip(cols, DASHBOARD_COLUMNS, strict=False):
-                if name == "Deadline":
-                    content, is_html = format_deadline_cell(row["Deadline"], row["Days to deadline"])
+                if name == COL_DEADLINE:
+                    content, is_html = format_deadline_cell(row[COL_DEADLINE], row[COL_DAYS])
                     if is_html:
                         col.markdown(content, unsafe_allow_html=True)
                     else:
                         col.write(content)
                 else:
                     col.write(_format_cell(row[name]))
-            if cols[-1].button("🔍", key=f"case_details_{case_id}", help="Open case details"):
+            if cols[-1].button("🔍", key=f"case_details_{case_id}", help="Otwórz szczegóły sprawy"):
                 show_case_detail(case_id)

@@ -194,7 +194,7 @@ def test_llm_failure_falls_back():
     svc.analyzer = RequestAnalyzer(FunctionModel(boom))
     result = svc.analyze_request(AnalyzeInput(case_id=7, text="Proszę o liczbę uczniów."))
     assert [q.text for q in result.questions] == ["Proszę o liczbę uczniów."]
-    assert any("LLM unavailable" in w for w in result.warnings)
+    assert any("Model językowy niedostępny" in w for w in result.warnings)
 
 
 def test_score_scaling():
@@ -289,4 +289,4 @@ def test_llm_failure_falls_back_to_the_offline_rule(archive):
     svc = service(["Liczba uczniów w szkołach."], store=archive)
     svc.verifier = _Verifier(error=True)
     result = svc.analyze_request(AnalyzeInput(case_id=23, text="x"))
-    assert result.triage.kind == TriageKind.DUPLICATE and any("offline rule" in w for w in result.warnings)
+    assert result.triage.kind == TriageKind.DUPLICATE and any("reguł" in w for w in result.warnings)

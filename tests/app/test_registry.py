@@ -280,10 +280,10 @@ def test_update_case_metadata_validates_and_writes_history(session):
     other = _add_case(session, CaseStatus.NEW)
     update_case_metadata(other, document_number="BKS.IV.1431.5.2026", created_date=date(2026, 11, 10),
                          response_deadline=date(2026, 11, 24), assignee_id=None, topic=None, session=session)
-    with pytest.raises(ValueError, match="already used"):
+    with pytest.raises(ValueError, match="już użyty"):
         update_case_metadata(case_id, document_number="BKS.IV.1431.5.2026", created_date=date(2026, 11, 10),
                              response_deadline=date(2026, 11, 24), assignee_id=None, topic=None, session=session)
-    with pytest.raises(ValueError, match="earlier"):
+    with pytest.raises(ValueError, match="wcześniejszy"):
         update_case_metadata(case_id, document_number=None, created_date=date(2026, 11, 10),
                              response_deadline=date(2026, 11, 1), assignee_id=None, topic=None, session=session)
     case = update_case_metadata(case_id, document_number=" BKS.IV.1431.6.2026 ", created_date=date(2026, 11, 12),
