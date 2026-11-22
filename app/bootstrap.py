@@ -12,7 +12,7 @@ def bootstrap():
     print(f"[bootstrap] Applications dir: {settings.applications_dir}", flush=True)
     print(f"[bootstrap] Responses dir: {settings.responses_dir}", flush=True)
 
-    print("[bootstrap] Initializing database tables and seeding departments...", flush=True)
+    print("[bootstrap] Creating tables and seeding departments / archived cases if empty...", flush=True)
     init_db()
 
     print("[bootstrap] Checking SQLite database connection...", flush=True)
