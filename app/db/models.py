@@ -53,6 +53,7 @@ class Case(SQLModel, table=True):
     __tablename__ = "case"
 
     id: int | None = Field(default=None, primary_key=True)
+    document_number: str | None = Field(default=None, index=True)  # e.g. "BKS.IV.1431.15.2026"
     topic: str | None = None  # short summary of the request
     created_date: date = Field(index=True)  # date the case was registered
     response_deadline: date = Field(index=True)  # 14 days or extended
@@ -81,6 +82,7 @@ class CaseHistory(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     change_date: datetime = Field(default_factory=utc_now)  # UTC
     case_id: int = Field(foreign_key="case.id", index=True)
+    document_number: str | None = None
     topic: str | None = None
     created_date: date
     response_deadline: date
@@ -99,6 +101,7 @@ class CaseHistory(SQLModel, table=True):
             raise ValueError("Case must be persisted (have an id) before snapshotting.")
         return cls(
             case_id=case.id,
+            document_number=case.document_number,
             topic=case.topic,
             created_date=case.created_date,
             response_deadline=case.response_deadline,

@@ -116,6 +116,7 @@ HackNation---ISA/
 ├── scripts/
 │   ├── scrape_departments.py # BIP → data/departments.json (re-run to refresh)
 │   ├── extract_questions.py  # manual check: parse → extract questions → (--route) departments
+│   ├── archive_loader.py     # manual rerun of app/services/archive_loader.py (also runs in init_db when no cases exist)
 │   ├── seed_all.py           # idempotent: DB + vector index from data/seed (--if-empty)
 │   ├── reindex.py            # rebuild the vector index from DB + data/ (after a backend change)
 │   ├── download_models.py    # used by Dockerfile to bake models into the image
