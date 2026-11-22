@@ -101,8 +101,12 @@ HackNation---ISA/
 │       ├── chunking.py
 │       └── indexer.py        # ingest(): text → chunks → embeddings → vector store
 │
-├── anonymization/            # SEPARATE MODULE — independent, used after Part 2; implementation TBD
-│   └── __init__.py
+├── anonymization/            # SEPARATE MODULE — independent; anonymize(text) -> {value: placeholder} (Presidio)
+│   ├── __init__.py           # public API + full list of anonymized data categories
+│   ├── service.py            # Anonymizer, AnonymizerConfig, anonymize(), redact()
+│   ├── recognizers.py        # Polish Presidio recognizers (regex, checksums, sensitive sentences)
+│   ├── checksums.py          # NIP, ID card, NRB validators
+│   └── entities.py           # Entity enum = placeholder prefixes
 │
 ├── data/                     # committed, read-only inputs
 │   ├── departments.json      # 29 units scraped from BIP (scripts/scrape_departments.py)
@@ -136,7 +140,7 @@ HackNation---ISA/
 
 - `app/` imports only `contracts` and `ai_service.factory` — never `ai_service.*` internals.
 - `ai_service/` never imports `app/` and never imports Streamlit.
-- `anonymization/` imports none of `app/`, `ai_service/`, `contracts/`; its interface is not decided yet.
+- `anonymization/` imports none of `app/`, `ai_service/`, `contracts/`; interface: `first_part_engineering_plan.md` §6.7.
 - Only `contracts/`, `pyproject.toml`, `uv.lock`, `compose.yaml` and `Dockerfile` are shared files —
   announce changes to them to the whole team.
 
@@ -260,6 +264,7 @@ in `storage/` except `.gitkeep`, then `docker compose up`.
   explain in the README where to put it, or rely on `LLM_PROVIDER=none` mode.
 - **Image size / build time:** torch CPU + embedding model ≈ 2–3 GB; the first build on the jury's
   machine takes minutes. `multilingual-e5-base` is smaller than `bge-m3` — choose consciously.
+  Anonymization (Presidio + spaCy `pl_core_news_md`) adds ~0.5 GB (app image 1.2 → 1.7 GB).
 - **CPU architecture:** the jury builds locally, so the image is native to their machine (amd64 or arm64,
   e.g. Apple Silicon). Avoid dependencies without arm64 Linux wheels; test a build on an arm64 machine if
   anyone has one.
