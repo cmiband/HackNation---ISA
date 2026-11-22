@@ -146,6 +146,13 @@ class DepartmentRepository:
     def get_by_id(self, department_id: int) -> Department | None:
         return self.session.get(Department, department_id)
 
+    def get_by_codes(self, codes: Sequence[str]) -> dict[str, Department]:
+        """Return departments with the given codes, keyed by code (unknown codes are left out)."""
+        if not codes:
+            return {}
+        statement = select(Department).where(Department.code.in_(list(codes)))
+        return {department.code: department for department in self.session.exec(statement).all()}
+
 
 class FileDataRepository:
     """``FileData`` is immutable once created, so there is no update."""
@@ -191,6 +198,10 @@ class DepartmentRequestRepository:
 
     def get_by_id(self, request_id: int) -> DepartmentRequest | None:
         return self.session.get(DepartmentRequest, request_id)
+
+    def delete(self, request: DepartmentRequest) -> None:
+        self.session.delete(request)
+        self.session.commit()
 
     def get_dep_requests_by_case_id(self, case_id: int) -> list[DepartmentRequest]:
         statement = (
