@@ -9,6 +9,7 @@ from app.db.repository import CaseRepository
 from app.ui.views.dashboard import (
     DASHBOARD_COLUMNS,
     empty_dashboard_frame,
+    load_dashboard_data,
     load_dashboard_frame,
 )
 from contracts.enums import CaseStatus, FileType
@@ -90,3 +91,26 @@ def test_load_dashboard_frame_queries_and_maps_columns():
     assert row2["Days to deadline"] == 2
     assert row2["Reply date"] is None
     assert row2["Status"] == "New"
+
+
+def test_load_dashboard_data_returns_case_ids_in_row_order():
+    engine = create_engine(
+        "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
+    )
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        repo = CaseRepository(session)
+        newer = repo.add_with_application(
+            Case(created_date=date(2026, 11, 10), response_deadline=date(2026, 11, 24)),
+            FileData(filename="b.pdf", file_type=FileType.APPLICATION),
+        )
+        older = repo.add_with_application(
+            Case(created_date=date(2026, 11, 1), response_deadline=date(2026, 11, 15)),
+            FileData(filename="a.pdf", file_type=FileType.APPLICATION),
+        )
+
+        case_ids, df = load_dashboard_data(session=session, today=date(2026, 11, 22))
+
+    assert case_ids == [older.id, newer.id]
+    assert len(df) == 2

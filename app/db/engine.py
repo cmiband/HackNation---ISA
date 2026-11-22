@@ -15,11 +15,12 @@ def get_session():
 
 
 def init_db(db_engine: Engine | None = None) -> None:
-    """Create all tables, seed departments and the archived cases if their tables are empty. Idempotent."""
+    """Create tables, seed departments and archived cases (if empty) and the current user. Idempotent."""
     # Local imports: models must be registered on SQLModel.metadata before create_all.
     from app.db import models  # noqa: F401
     from app.db.repository import DepartmentRepository
     from app.services.archive_loader import load_archive_if_empty
+    from app.services.current_user import get_or_create_current_user
 
     target_engine = db_engine or engine
     if db_engine is None:
@@ -28,6 +29,7 @@ def init_db(db_engine: Engine | None = None) -> None:
     with Session(target_engine) as session:
         DepartmentRepository(session).load_departments()
         load_archive_if_empty(session, settings.applications_dir, settings.responses_dir)
+        get_or_create_current_user(session)
 
 
 def check_db_connection() -> dict[str, str | bool]:

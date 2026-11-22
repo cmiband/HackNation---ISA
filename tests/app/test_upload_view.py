@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.db.models import Case
+from app.db.models import Case, User
 from app.ui.views.upload import ALLOWED_EXTENSIONS, format_size, load_files, split_files, summarize
 from contracts.enums import CaseStatus, FileType
 
@@ -75,3 +75,22 @@ def test_load_files_saves_all_as_applications(tmp_path):
         (1, 2, "a.pdf", apps_dir / "a.pdf"),
         (2, 2, "b.docx", apps_dir / "b.docx"),
     ]
+
+
+def test_load_files_assigns_cases_to_given_user(tmp_path):
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(first_name="test", last_name="testowski", initials="tt")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        load_files(
+            [SimpleNamespace(name="a.pdf", size=3, getvalue=lambda: b"pdf")],
+            applications_dir=tmp_path,
+            session=session,
+            assignee_id=user.id,
+        )
+        cases = session.exec(select(Case)).all()
+        assert [c.assignee_id for c in cases] == [user.id]

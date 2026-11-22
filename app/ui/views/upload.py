@@ -16,6 +16,7 @@ from app.db.engine import engine
 from app.db.models import Case, FileData
 from app.db.repository import CaseRepository
 from app.services.file_storage import save_uploaded_file
+from app.ui.current_user import get_current_user_id
 from contracts.enums import CaseStatus, FileType
 
 # Default response deadline (UDIP); real calculation lives in app/services/deadlines.py (not yet implemented).
@@ -80,10 +81,11 @@ def load_files(
     *,
     applications_dir: Path | None = None,
     session: Session | None = None,
+    assignee_id: int | None = None,
 ) -> list[Path]:
     """Save each accepted file as an Application under host storage and register it in the DB.
 
-    Every file creates one `FileData` (APPLICATION) + one `Case` (status NEW).
+    Every file creates one `FileData` (APPLICATION) + one `Case` (status NEW, assigned to `assignee_id`).
     """
     total = len(files)
     saved_paths: list[Path] = []
@@ -105,6 +107,7 @@ def load_files(
                         created_date=today,
                         response_deadline=today + timedelta(days=RESPONSE_DEADLINE_DAYS),
                         status=CaseStatus.NEW,
+                        assignee_id=assignee_id,
                     ),
                     FileData(filename=saved_path.name, file_type=FileType.APPLICATION),
                 )
@@ -161,6 +164,7 @@ def render() -> None:
                 on_file=lambda idx, total, f, path: st.write(
                     f"[{idx}/{total}] Saved **{path.name}** → `applications/`"
                 ),
+                assignee_id=get_current_user_id(),
             )
             count = len(saved_paths)
             status.update(
