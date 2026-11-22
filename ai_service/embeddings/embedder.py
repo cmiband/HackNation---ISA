@@ -9,6 +9,7 @@ from threading import Lock
 from typing import Any
 
 from ai_service.embeddings.config import EmbeddingSettings
+from ai_service.embeddings.normalize import mask_periods
 from ai_service.embeddings.sparse import SparseBm25Encoder
 from ai_service.vector_store.types import QuestionVectors
 
@@ -97,7 +98,8 @@ class QuestionEmbedder:
             return []
 
         cleaned = [text for _, text in pairs]
-        dense_vectors = self.encode_dense(cleaned, is_query=is_query)
+        # dense on period-masked text (same data / other year = same question); sparse + payload keep the original
+        dense_vectors = self.encode_dense([mask_periods(t) or t for t in cleaned], is_query=is_query)
         return [
             QuestionVectors(
                 question=text,

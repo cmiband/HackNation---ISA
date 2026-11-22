@@ -94,12 +94,14 @@ HackNation---ISA/
 │   │   ├── analysis.py       # RequestAnalyzer: one call → questions + summary + subject + applicant + date
 │   │   ├── question_extraction.py  # QuestionExtractor: request text → self-contained questions
 │   │   ├── summarization.py  # RequestSummarizer: whole request → short description (≤ 300 chars)
+│   │   ├── duplicate_check.py # DuplicateVerifier: LLM confirms which candidate cases ask the same
 │   │   ├── ocr.py            # LLMOcr: scanned PDF → text via multimodal LLM
 │   │   └── prompts/          # prompt templates (*.md)
 │   ├── parsing/
 │   │   └── parser.py         # DocumentParser: PDF/DOCX bytes → text (pypdf, python-docx, LLM OCR)
 │   ├── embeddings/
 │   │   ├── config.py         # EmbeddingSettings from env (EMBEDDING_MODEL, prefixes)
+│   │   ├── normalize.py      # mask_periods: years/dates removed before dense embedding
 │   │   ├── sparse.py         # SparseBm25Encoder: Polish tokenization + BM25 TF weights
 │   │   └── embedder.py       # QuestionEmbedder: sentence-transformers (dense) + BM25 (sparse)
 │   ├── vector_store/         # Qdrant, see section 5

@@ -31,6 +31,7 @@ from app.db.engine import engine, init_db
 from app.db.models import Case
 from app.db.repository import CaseRepository
 from app.services.archive_loader import load_archive
+from app.services.registry import load_analysis
 from contracts.models import AnalyzeInput, AnalyzeResult
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,7 +86,11 @@ def index_archive(
     for case in repo.get_all_cases():
         existing_ids.add(case.id)
         if case.response_id is None or case.application is None:
-            continue  # open case: indexed by analyze_request when the official runs the analysis
+            # open case: indexed by analyze_request; re-index it from its stored analysis (vectors may have changed)
+            stored = load_analysis(case)
+            if stored is not None and stored.questions:
+                service.index_case(case.id, [q.text for q in stored.questions], file_id=case.application.filename)
+            continue
         filename = case.application.filename
         entry = None if refresh else cache.get(filename)
         if entry is None:

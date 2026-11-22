@@ -72,7 +72,7 @@ def test_embed_questions_produces_dense_and_sparse_with_query_id_and_file_id():
     q = "Liczba mieszkańców według opłat za odpady przy ul. Albatrosowej w Bydgoszczy."
     vectors = embedder.embed_questions([q], query_ids=[3], file_id="wniosek_18.docx")
     assert len(vectors) == 1
-    assert seen_dense_inputs == [q]
+    assert seen_dense_inputs == [f"zapytanie: {q}"]  # default mmlw prefix on both sides
     assert vectors[0].question == q
     assert vectors[0].query_id == 3
     assert vectors[0].file_id == "wniosek_18.docx"
@@ -195,3 +195,19 @@ def test_seed_directory_and_search_and_index_new_request(tmp_path):
     # Verify the new request's 2 questions were also saved into Qdrant under case_id=10.
     assert store.count_case_points(10) == 2
     assert store.count_points() == 4
+
+
+def test_dense_uses_period_masked_text_but_question_and_sparse_keep_it():
+    from ai_service.embeddings.normalize import mask_periods
+
+    assert mask_periods("Liczba uczniów w roku szkolnym 2024/2025 - stan na 30 września 2026 r.") == (
+        "Liczba uczniów w roku szkolnym - stan na"
+    )
+    assert mask_periods("Koszt w latach 2023–2024 oraz 15.01.2026 r. i w czerwcu") == "Koszt w latach oraz i w czerwcu"
+    seen: list[str] = []
+    embedder = QuestionEmbedder(
+        EmbeddingSettings(query_prefix="", doc_prefix=""), dense_fn=lambda t: (seen.extend(t), [[1.0, 0, 0]] * len(t))[1]
+    )
+    v = embedder.embed_questions(["Liczba ślubów w 2025 r."])[0]
+    assert seen == ["Liczba ślubów w"] and v.question == "Liczba ślubów w 2025 r."
+    assert SparseBm25Encoder.token_id("2025") in v.sparse.indices
