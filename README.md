@@ -10,6 +10,7 @@ Hacknation 24 h hackathon.
 |----------|---------|
 | `docs/TASK_DESCRIPTION.txt` | Hackathon challenge, requirements, jury tests |
 | `docs/first_part_engineering_plan.md` | Architecture, scope, contracts, specs for Part 1 |
+| `docs/second_part_engineering_plan.md` | Plan for the rest of the MVP: integration, fast paths, drafting, anonymization UI, export, seeding |
 | `docs/project_structure_and_docker.md` | Folder skeleton, import rules, Docker setup |
 
 ## Developer setup

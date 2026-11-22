@@ -34,7 +34,7 @@ We are building an **Intelligent Assistant for Public Officials** to handle **Ac
 - **Dockerized delivery:** the jury clones the repo and runs `docker compose up --build` on their machine.
 
 ### OUT OF SCOPE for Part 1
-- **Part 2 (not designed yet):** uploading departmental responses, generating draft reply letters, exporting final `.doc` / `.txt` response files.
+- **Part 2 (designed in `second_part_engineering_plan.md`):** uploading departmental responses, generating draft reply letters, exporting final `.doc` / `.txt` response files.
 - **Anonymization UI and redaction flow:** the module itself is specified in §6.7; how Part 2 uses it (highlight → official confirms → redact) is designed with Part 2.
 
 *(Design Part 1 so Part 2 modules and the anonymization module plug in without refactoring.)*
