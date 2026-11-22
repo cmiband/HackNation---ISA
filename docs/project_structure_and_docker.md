@@ -71,7 +71,8 @@ HackNation---ISA/
 │       ├── i18n.py           # Polish UI labels
 │       ├── components/       # status badges, deadline chips
 │       └── views/            # one render() per tab; NOT `pages/` (Streamlit would add its own sidebar nav)
-│           ├── dashboard.py      # implemented: case table from SQLite (oldest → newest), 🔍 details button per row
+│           ├── dashboard.py      # implemented: case table from SQLite (top 10 by deadline + "Show all" toggle,
+│           │                     #   deadline urgency highlights, 🔍 details button per row)
 │           ├── case_detail.py    # implemented: case detail popup (st.dialog): filename, deadline, status button,
 │           │                     #   PDF / DOCX preview of the application file
 │           ├── upload.py         # implemented: multi-file drag & drop (PDF/DOCX), summary, accept/reject;
