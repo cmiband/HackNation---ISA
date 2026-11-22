@@ -18,7 +18,6 @@ from app.ui.views.case_detail import (
     pdf_iframe_html,
     request_row_controls,
     resolve_application_path,
-    shows_finalize_response,
 )
 from contracts.enums import CaseStatus, FileType, RequestStatus
 
@@ -27,11 +26,11 @@ from contracts.enums import CaseStatus, FileType, RequestStatus
     ("status", "label", "kind"),
     [
         (CaseStatus.NEW, "Wykonaj analizę", DetailActionKind.ANALYZE),
-        (CaseStatus.PROCESSED, "Mark as Request Sent", DetailActionKind.ADVANCE_STATUS),
-        (CaseStatus.REQUEST_SENT, "Query", DetailActionKind.QUERY),
+        (CaseStatus.PROCESSED, "Oznacz: zapytania wysłane", DetailActionKind.ADVANCE_STATUS),
+        (CaseStatus.REQUEST_SENT, "Kwerenda (przedłuż termin)", DetailActionKind.QUERY),
         (
             CaseStatus.RESPONSE_GENERATED,
-            "Mark as Response Sent",
+            "Oznacz: odpowiedź wysłana",
             DetailActionKind.ADVANCE_STATUS,
         ),
     ],
@@ -158,16 +157,3 @@ def test_request_row_controls(status, case_status, expected):
     assert request_row_controls(status, case_status) == expected
 
 
-@pytest.mark.parametrize(
-    ("status", "expected"),
-    [
-        (CaseStatus.NEW, False),
-        (CaseStatus.PROCESSED, False),
-        (CaseStatus.REQUEST_SENT, True),
-        (CaseStatus.QUERY, True),
-        (CaseStatus.RESPONSE_GENERATED, False),
-        (CaseStatus.RESPONSE_SENT, False),
-    ],
-)
-def test_shows_finalize_response(status, expected):
-    assert shows_finalize_response(status) is expected

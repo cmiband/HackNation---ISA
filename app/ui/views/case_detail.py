@@ -16,7 +16,6 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from sqlmodel import Session
 
-from ai_service.factory import get_ai_service
 from app.config import settings
 from app.db.engine import engine
 from app.db.repository import (
@@ -33,8 +32,17 @@ from app.services.registry import (
     mark_department_request_sent,
     request_case_analysis,
 )
+from app.ui.i18n import request_status_label, status_label
+from app.ui.services import get_cached_ai_service
+from app.ui.views.case_analysis import (
+    load_analysis_view,
+    render_analysis,
+    render_metadata_form,
+    render_shortcut_banner,
+    shortcut_banner_visible,
+)
+from app.ui.views.case_response import accept_shortcut, render_department_replies, render_draft_editor
 from contracts.enums import CaseStatus, RequestStatus
-from contracts.protocol import AIServiceProtocol
 
 # Make the dialog cover almost the whole browser window.
 _DIALOG_CSS = """
@@ -65,11 +73,9 @@ class DetailAction:
 # Top-right button of the popup per case status; statuses not listed have no button.
 DETAIL_ACTIONS: dict[CaseStatus, DetailAction] = {
     CaseStatus.NEW: DetailAction("Wykonaj analizę", DetailActionKind.ANALYZE),
-    CaseStatus.PROCESSED: DetailAction("Mark as Request Sent", DetailActionKind.ADVANCE_STATUS),
-    CaseStatus.REQUEST_SENT: DetailAction("Query", DetailActionKind.QUERY),
-    CaseStatus.RESPONSE_GENERATED: DetailAction(
-        "Mark as Response Sent", DetailActionKind.ADVANCE_STATUS
-    ),
+    CaseStatus.PROCESSED: DetailAction("Oznacz: zapytania wysłane", DetailActionKind.ADVANCE_STATUS),
+    CaseStatus.REQUEST_SENT: DetailAction("Kwerenda (przedłuż termin)", DetailActionKind.QUERY),
+    CaseStatus.RESPONSE_GENERATED: DetailAction("Oznacz: odpowiedź wysłana", DetailActionKind.ADVANCE_STATUS),
 }
 
 
@@ -206,39 +212,21 @@ def _show_request_flash() -> None:
         st.toast(message, icon=icon)
 
 
-# Case statuses that show the "Finalize Response" button under the department requests.
-FINALIZE_RESPONSE_STATUSES = frozenset({CaseStatus.QUERY, CaseStatus.REQUEST_SENT})
-
-
-def shows_finalize_response(case_status: CaseStatus) -> bool:
-    """Whether the "Finalize Response" button is shown for ``case_status``."""
-    return case_status in FINALIZE_RESPONSE_STATUSES
-
-
 def render_department_requests(case_id: int, case_status: CaseStatus) -> None:
     """Show the case's department requests as a table with per-row status buttons."""
     _show_request_flash()
-    st.markdown("#### Department requests")
+    st.markdown("#### Zapytania do jednostek")
     rows = load_department_requests(case_id)
     if not rows:
-        st.caption("No department requests yet.")
+        st.caption("Brak zapytań do jednostek.")
     else:
         _render_request_rows(rows, case_status)
 
-    if case_status == CaseStatus.REQUEST_SENT:
-        # TODO: replace with the file input for the departments' replies.
-        st.html('<div class="file-input-placeholder">Place for file input</div>')
-
-    if shows_finalize_response(case_status) and st.button(
-        "Finalize Response", key="case_detail_finalize_response", type="primary"
-    ):
-        # TODO: generate the final response (Request_Sent / Query -> Response_Generated).
-        st.toast("Finalize Response is not implemented yet.", icon="ℹ️")
 
 
 def _render_request_rows(rows: list[DepartmentRequestRow], case_status: CaseStatus) -> None:
     header = st.columns(_REQUEST_COLUMNS, vertical_alignment="center")
-    titles = ["**Department**", "**Status**", "**Request**", "", ""]
+    titles = ["**Jednostka**", "**Status**", "**Pytania**", "", ""]
     for col, title in zip(header, titles, strict=True):
         col.markdown(title)
     for row in rows:
@@ -246,37 +234,37 @@ def _render_request_rows(rows: list[DepartmentRequestRow], case_status: CaseStat
             _REQUEST_COLUMNS, vertical_alignment="center"
         )
         code_col.markdown(f"`{row.department_code}`", help=row.department_name)
-        status_col.markdown(row.status.value)
+        status_col.markdown(request_status_label(row.status))
         text_col.markdown(row.request_text)
         controls = request_row_controls(row.status, case_status)
         if controls.can_delete:
             first_col.button(
                 ":material/delete:",
                 key=f"dep_request_delete_{row.request_id}",
-                help="Delete request",
+                help="Usuń zapytanie",
                 on_click=_request_action_callback,
-                args=(delete_department_request, row.request_id, "Request deleted."),
+                args=(delete_department_request, row.request_id, "Zapytanie usunięte."),
             )
         if controls.can_send:
             second_col.button(
                 ":material/mail:",
                 key=f"dep_request_send_{row.request_id}",
-                help="Mark as Sent",
+                help="Oznacz jako wysłane",
                 on_click=_request_action_callback,
-                args=(mark_department_request_sent, row.request_id, "Request marked as Sent."),
+                args=(mark_department_request_sent, row.request_id, "Zapytanie oznaczone jako wysłane."),
             )
         if controls.sent_icon:
-            first_col.markdown(":material/send:", help="Request sent")
+            first_col.markdown(":material/send:", help="Zapytanie wysłane")
         if controls.can_complete:
             second_col.button(
                 ":material/check:",
                 key=f"dep_request_complete_{row.request_id}",
-                help="Mark as Completed",
+                help="Oznacz jako zakończone (jednostka odpowiedziała)",
                 on_click=_request_action_callback,
-                args=(complete_department_request, row.request_id, "Request completed."),
+                args=(complete_department_request, row.request_id, "Zapytanie zakończone."),
             )
         if controls.completed_icon:
-            first_col.markdown(":material/task_alt:", help="Request completed")
+            first_col.markdown(":material/task_alt:", help="Zapytanie zakończone")
 
 
 def pdf_iframe_html(data: bytes, height: int = PREVIEW_HEIGHT_PX) -> str:
@@ -352,7 +340,7 @@ def render_docx_preview(path: Path) -> None:
     try:
         content = docx_to_html(path.read_bytes())
     except Exception as exc:  # corrupt or non-DOCX file
-        st.error(f"Cannot preview `{path.name}`: {exc}")
+        st.error(f"Nie można wyświetlić podglądu `{path.name}`: {exc}")
         return
     with st.container(height=PREVIEW_HEIGHT_PX):
         st.html(content)
@@ -366,7 +354,7 @@ def render_file_preview(path: Path) -> None:
     elif suffix == ".docx":
         render_docx_preview(path)
     else:
-        st.info(f"Preview is not available for `{suffix or path.name}` files.")
+        st.info(f"Podgląd niedostępny dla plików `{suffix or path.name}`.")
 
 
 def render_pdf_preview(path: Path) -> None:
@@ -378,21 +366,18 @@ def render_pdf_preview(path: Path) -> None:
         st.markdown(pdf_iframe_html(data), unsafe_allow_html=True)
 
 
-@st.cache_resource(show_spinner="Loading AI models...")
-def get_cached_ai_service() -> AIServiceProtocol:
-    """Real ``AIService`` (``AI_MOCK=1`` -> mock), built once per process: models load only once."""
-    return get_ai_service()
-
-
 def _run_action(detail: CaseDetail, action: DetailAction) -> None:
     if action.kind == DetailActionKind.ANALYZE:
         try:
-            with st.spinner("Analyzing the request..."):
+            with st.spinner("Analiza wniosku (odczyt pliku, pytania, podobne sprawy, jednostki)..."):
                 request_case_analysis(detail.case_id, ai_service=get_cached_ai_service())
-        except Exception as exc:  # AI or DB failure: keep the popup open and show the error
-            st.error(f"Analysis failed: {exc}")
+        except FileNotFoundError:
+            st.error("Nie znaleziono pliku wniosku w magazynie plików — nie można wykonać analizy.")
             return
-        st.toast("Analysis done.", icon="✅")
+        except Exception as exc:  # AI or DB failure: keep the popup open and show the error
+            st.error(f"Analiza nie powiodła się: {exc}")
+            return
+        st.toast("Analiza zakończona.", icon="✅")
         st.rerun(scope="fragment")  # keep the popup open to show the department requests
         return
 
@@ -401,7 +386,7 @@ def _run_action(detail: CaseDetail, action: DetailAction) -> None:
         return
 
     advance_case_status(detail.case_id)
-    st.toast(f"Case updated: {action.label}.", icon="✅")
+    st.toast(f"Zaktualizowano sprawę: {action.label}.", icon="✅")
     # Keep the popup open with the new status (e.g. tick buttons after "Mark as Request Sent");
     # "Close" reruns the whole app, which refreshes the dashboard.
     st.rerun(scope="fragment")
@@ -419,36 +404,36 @@ def render_query_form(detail: CaseDetail) -> None:
     # Suggest the latest extended deadline: received + 2 months, next working day (art. 13 ust. 2 UDIP).
     suggested = query_deadline(detail.received) if detail.received else detail.deadline
     new_deadline = date_col.date_input(
-        "New deadline", value=suggested, format="YYYY-MM-DD", key="case_detail_query_deadline"
+        "Nowy termin odpowiedzi", value=suggested, format="DD.MM.YYYY", key="case_detail_query_deadline"
     )
-    if confirm_col.button("Confirm", key="case_detail_query_confirm", type="primary", width="stretch"):
+    if confirm_col.button("Zatwierdź", key="case_detail_query_confirm", type="primary", width="stretch"):
         try:
             mark_case_query(detail.case_id, new_deadline)
         except (LookupError, ValueError) as exc:
             st.error(str(exc))
             return
         st.session_state.pop(_QUERY_FORM_KEY, None)
-        st.toast(f"Case moved to Query, new deadline {new_deadline:%Y-%m-%d}.", icon="✅")
+        st.toast(f"Kwerenda: nowy termin {new_deadline:%d.%m.%Y}.", icon="✅")
         st.rerun(scope="fragment")
-    if cancel_col.button("Cancel", key="case_detail_query_cancel", width="stretch"):
+    if cancel_col.button("Anuluj", key="case_detail_query_cancel", width="stretch"):
         st.session_state.pop(_QUERY_FORM_KEY, None)
         st.rerun(scope="fragment")
 
 
-@st.dialog("Case details", width="large")
+@st.dialog("Szczegóły sprawy", width="large")
 def show_case_detail(case_id: int) -> None:
     st.markdown(_DIALOG_CSS, unsafe_allow_html=True)
     detail = load_case_detail(case_id)
     if detail is None:
-        st.error(f"Case {case_id} not found.")
-        if st.button("Close", key="case_detail_close"):
+        st.error(f"Nie znaleziono sprawy {case_id}.")
+        if st.button("Zamknij", key="case_detail_close"):
             st.rerun()
         return
 
     left, right = st.columns([4, 1], vertical_alignment="top")
     with left:
-        st.markdown(f"### 📄 {detail.filename or '(no file)'}")
-        st.caption(f"Deadline: **{detail.deadline:%Y-%m-%d}** · Status: `{detail.status.value}`")
+        st.markdown(f"### 📄 {detail.filename or '(brak pliku)'}")
+        st.caption(f"Termin odpowiedzi: **{detail.deadline:%d.%m.%Y}** · Status: **{status_label(detail.status)}**")
     with right:
         action = detail_action_for(detail.status)
         if action is not None and st.button(
@@ -457,17 +442,27 @@ def show_case_detail(case_id: int) -> None:
             _run_action(detail, action)
 
     render_query_form(detail)
+    render_metadata_form(detail.case_id)
 
     st.divider()
 
+    view = load_analysis_view(detail.case_id) if detail.status != CaseStatus.NEW else None
+    if view is not None:
+        if shortcut_banner_visible(view, detail.status, detail.case_id):
+            render_shortcut_banner(view, detail.case_id, on_accept=accept_shortcut)
+        render_analysis(view)
+        st.divider()
+
     render_department_requests(detail.case_id, detail.status)
+    render_department_replies(detail.case_id, detail.status)
+    render_draft_editor(detail.case_id, detail.status, [q.text for q in view.questions] if view else [])
 
     st.divider()
 
     if detail.file_path is None:
-        st.warning(f"File `{detail.filename}` not found in `{settings.applications_dir}`.")
+        st.warning(f"Nie znaleziono pliku `{detail.filename}` w `{settings.applications_dir}`.")
     else:
         render_file_preview(detail.file_path)
 
-    if st.button("Close", key="case_detail_close"):
+    if st.button("Zamknij", key="case_detail_close"):
         st.rerun()
