@@ -24,6 +24,9 @@ class CaseRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def is_empty(self) -> bool:
+        return self.session.exec(select(Case.id).limit(1)).first() is None
+
     def add(self, case: Case) -> Case:
         self.session.add(case)
         self.session.commit()
@@ -44,6 +47,27 @@ class CaseRepository:
         self.session.commit()
         self.session.refresh(case)
         self.session.refresh(application)
+        return case
+
+    def add_case_with_application_and_response(
+        self, case: Case, application: FileData, response: FileData
+    ) -> Case:
+        """Insert a new case with both its application and response files in one transaction.
+
+        Both files must be unsaved. They are linked through the relationships, so SQLAlchemy
+        inserts ``file_data`` first and fills ``case.application_id`` / ``case.response_id``.
+        """
+        if application.file_type != FileType.APPLICATION:
+            raise ValueError("application must have file_type FileType.APPLICATION.")
+        if response.file_type != FileType.RESPONSE:
+            raise ValueError("response must have file_type FileType.RESPONSE.")
+        case.application = application
+        case.response = response
+        self.session.add(case)
+        self.session.commit()
+        self.session.refresh(case)
+        self.session.refresh(application)
+        self.session.refresh(response)
         return case
 
     def add_all(self, cases: Sequence[Case]) -> list[Case]:
