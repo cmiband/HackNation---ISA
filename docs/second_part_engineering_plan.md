@@ -1,0 +1,403 @@
+# SECOND_PART.md — Engineering Plan (Part 2: Integration, Fast Paths, Drafting, Anonymization, Export)
+
+Continues `first_part_engineering_plan.md` (architecture, contracts v1, DB schema, module specs) and
+`project_structure_and_docker.md` (folders, import rules, Docker). Everything there still applies unless this
+document changes it. Time budget: **~6–10 hours, 4 people**. Priorities: **P0** = needed for the jury tests,
+**P1** = do if P0 is done, **P2** = only if time is left (otherwise mention in the presentation).
+
+---
+
+## 0. Status snapshot (2026-11-22, `main` @ e1953c5)
+
+| Area | State |
+|------|-------|
+| Parser (DOCX, PDF text, Gemini OCR) | done, tested on samples |
+| Question extraction, request summary, department routing (LLM, fallback chain) | done, tested with real Gemini |
+| Embeddings (mmlw-roberta-base + BM25), Qdrant store, retriever | done, demoed from `scripts/seed_qdrant_local.py` |
+| Anonymization engine (Presidio + spaCy, 28 categories) | done (module only, no UI) |
+| DB schema + repositories + case history | done |
+| Upload tab (file + `Case` saved) and Dashboard table | done, no AI, no highlighting, no year filter |
+| `ai_service/service.py` (real `AIService`) | **missing** — `factory.py` always returns the mock |
+| Deadlines, registry (status transitions), case view, verify step | **missing** (`deadlines.py`, `registry.py` are empty) |
+| Seeding / demo data | **missing** — sample data is only in gitignored `.local/`; a fresh clone has an empty DB |
+| Draft reply, anonymization UI, export, department replies upload | **missing** (`drafting/`, `exporter.py` empty) |
+| Embedding model baked into the image | **missing** (`download_models.py` is a stub; model downloads at runtime) |
+
+Broken on `main` at the time of writing (items 1–2 fixed in §2):
+- `pyproject.toml`: the line `pl-core-news-md = { url = ... }` ended up under `[[tool.uv.index]]` (pytorch-cpu)
+  instead of `[tool.uv.sources]` after the last merges. `uv sync`, `uv run`, `uv lock` fail ("pl-core-news-md
+  was not found in the package registry") and so does `uv sync --locked` in the `Dockerfile`. Workaround until
+  fixed: `uv run --frozen ...`.
+- `uv run ruff check .`: 6 findings in `app/ui/main.py` (duplicate/unused imports).
+- ID mismatch: `seed_qdrant_local.py` numbers Qdrant cases by file (1..N), but Qdrant `case_id` must be the
+  SQLite `Case.Id`. The archive loader does not index into Qdrant at all.
+
+---
+
+## 1. Target flow (what the jury must see)
+
+```
+Upload PDF/DOCX
+   │  extract_text (parser, OCR for scans)
+   ▼
+Analyze: questions + summary/subject/applicant (LLM) → embed → similar-case search (dense cosine + hybrid)
+   │
+   ├─ FAST PATH 1 "Same question found"   (very high similarity to an archived case WITH a reply)
+   │     → LLM adapts the archived reply to the new request, flags values to verify   (no routing call)
+   │
+   ├─ FAST PATH 2 "Outside UMB competence" (routing: no department for any question AND low similarity)
+   │     → redirect letter (art. 4 ust. 3 UDIP) with the competent body's contact data from a directory
+   │
+   └─ STANDARD PATH
+         → suggested departments (+ P1: inquiry drafts) → official uploads department replies
+         → LLM draft from the replies
+   ▼
+Official reviews: banner + "Accept shortcut" / "Continue full pipeline" (fast paths are only proposed)
+   ▼
+Verify metadata → save case (calendar) → draft editor → anonymization review (gray → black) → export .docx/.txt
+   ▼
+Status: New → Processed → Request_Sent → (Query) → Response_Generated → Response_Sent (history kept)
+```
+
+Mentors say the two fast paths cover **~80 % of real requests** → they get the most attention (§3, §4).
+Human-in-the-loop stays: the system only **proposes** a fast path; the official confirms it or continues the
+full pipeline. Nothing is ever sent.
+
+---
+
+## 2. Step 0 — unblock `main` — **done** on branch `fix/main-blockers`
+
+1. `pyproject.toml`: the `pl-core-news-md = { url = ... }` line moved back under `[tool.uv.sources]`;
+   `uv lock` re-run. The old `uv.lock` was also stale: it had **no `torch`, `sentence-transformers`,
+   `transformers`** (added to `pyproject.toml` without relocking), so the embedder could not run in Docker
+   (`--frozen`). The new lock adds them (torch from the CPU index). `uv sync`, `uv run pytest` (86 passed),
+   `uv run ruff check .` and `docker compose build` pass; inside the image torch, sentence-transformers,
+   Presidio and `pl_core_news_md` load (image ≈ 3.4 GB).
+2. `uv run ruff check --fix .` fixed the 6 unused/duplicate imports in `app/ui/main.py`.
+3. Everyone after the merge: `git pull && uv sync` (downloads torch CPU, a few hundred MB).
+4. Still open (part of §7.3): `seed_qdrant_local.py` case ids ≠ SQLite `Case.Id`.
+
+---
+
+## 3. Fast path 1 — "Same question found" (P0, Subteam B)
+
+### 3.1 A similarity score that can be thresholded
+The hybrid search returns **RRF scores** — rank-based, not comparable across queries, so they cannot say "this
+is practically the same question". Thresholds use the **dense cosine similarity** instead:
+
+- `QuestionStore.search_similar_cases` additionally runs the dense-only grouped query (existing code path) and
+  returns `dense_score` (cosine, 0–1) on `MatchedQuestion` and `SimilarCaseHit`. Hybrid stays for **ranking**
+  the list; cosine is used for **decisions** and for `SimilarCase.score` (0.0–1.0 in the contract — this also
+  solves the "map RRF to 0–1" TODO).
+- Per candidate case `C`: `s_i(C)` = best cosine between new question `i` and any question of `C`.
+  `coverage(C) = min_i s_i(C)` — **every** new question must be matched, not just one.
+- **Duplicate candidate** if `coverage(C) ≥ T_DUP` and `C` has a reply (status `Response_Sent`, `response_id`
+  set). Start with `T_DUP = 0.90`, calibrate (§3.3). Several candidates → the best one is used, the others are
+  listed.
+
+### 3.2 Draft from the archived reply
+One LLM call (`ai_service/drafting/reuse.py`, `ArchiveReplyAdapter`), output model:
+
+```python
+class AdaptedReply(BaseModel):
+    same_scope: bool            # the archived reply answers all new questions
+    period_differs: bool        # same data asked for another year / date / state ("stan na ...")
+    body: str                   # letter body adapted to the new request (no letterhead, no closing)
+    values_to_verify: list[str] # exact substrings of `body`: numbers, dates, years, amounts, contract numbers
+    notes: str                  # short explanation for the official (Polish)
+```
+
+- Inputs: new questions, archived questions, archived reply text (parsed from the reply file and cleaned,
+  §9.3), new case number.
+- Rules in the prompt: use only facts from the archived reply; never invent numbers; anything that can be
+  outdated goes to `values_to_verify`; keep the BKS style ("W odpowiedzi na wystosowany przez Pana/Panią
+  wniosek ...", "Ad 1 / Ad 2" for several questions).
+- Validator: every `values_to_verify` item must occur in `body` (otherwise `ModelRetry`).
+- UI: values highlighted yellow; if `period_differs` or `not same_scope` → warning "The archived reply covers a
+  different period/scope — verify the values or continue the full pipeline (ask the department)".
+- In the samples: 307/2025 → 599/2026 (pupil counts, new dates) and 293/2025 → 543/2026 (stray animals, new
+  year) are exactly this "same data, new period" case.
+- The routing call is **skipped** on this path (saves quota); "Continue full pipeline" runs it on demand.
+
+### 3.3 Calibration (`scripts/calibrate_similarity.py`, no LLM)
+Uses the cached questions of the seed cases (§7): prints the cosine `coverage` matrix between all seed cases.
+The known pairs (307↔599, 293↔543) must be ≥ `T_DUP`; unrelated pairs set the noise floor for `T_LOW` (§4).
+Thresholds go to `.env` (`SIMILARITY_DUPLICATE=0.90`, `SIMILARITY_LOW=...`) with calibrated defaults in code.
+Note: mmlw cosine for unrelated Polish sentences is usually well above 0 — "near zero" means "below the
+calibrated noise floor".
+
+---
+
+## 4. Fast path 2 — "Outside UMB competence" (P0, Subteam B)
+
+Samples 15 (sculpture → Kujawsko-Pomorski Wojewódzki Konserwator Zabytków) and 17 (contract of a municipal
+company → ZDMiKP) are redirect letters: "Urząd Miasta Bydgoszczy nie jest dysponentem wnioskowanych danych …
+art. 4 ust. 3 … winien się zwrócić do …" + contact data.
+
+### 4.1 External bodies directory (`data/external_bodies.json`)
+- Fields: `id` (slug), `name`, `kind` (`municipal_unit` | `municipal_company` | `state_body` | `other`),
+  `scope` (what it handles, used by the LLM), `address`, `email`, `phone`, `url`.
+- Content (~30–50 entries): Bydgoszcz municipal organizational units and companies from BIP (find the BIP UMB
+  pages listing "jednostki organizacyjne" and "spółki miejskie"; extend `scripts/scrape_departments.py` or add
+  `scripts/scrape_external_bodies.py`), plus hand-added state bodies that appear in requests (Wojewódzki
+  Konserwator Zabytków – Delegatura w Bydgoszczy, Kujawsko-Pomorski Urząd Wojewódzki, KMP Policji, …).
+  Contact data comes **only** from this file, never from the LLM.
+- Loaded by `ai_service/routing/directory.py` (`ExternalBodyDirectory`, like `DepartmentDirectory`).
+
+### 4.2 Routing extension
+`RoutingResult` gets request-level fields (same single LLM call):
+
+```python
+class RoutingResult(BaseModel):
+    questions: list[QuestionRouting]           # unchanged: codes per question
+    competent_body_id: str | None = None       # id from external_bodies.json when no department fits
+    out_of_scope_reason: str = ""              # short Polish justification for the official
+```
+
+Validator: `competent_body_id` must exist in the directory (else retry); `null` = unknown → the official fills
+it in. The prompt gets the external bodies list (name + scope) next to the departments.
+
+### 4.3 Decision and draft
+- **Out-of-scope candidate** if routing returns no department for **every** question **and** the best case
+  `coverage < T_LOW`. (Empty routing + high similarity → fast path 1 already handles it, the archived reply is
+  then usually itself a redirect. Empty routing for only some questions → standard path, the draft gets a
+  redirect paragraph for those questions.)
+- Draft = **deterministic template** (no extra LLM call) built from samples 15/17:
+  `subject` (from the summary call, §6.2) + body template + contact block of the chosen body. If
+  `competent_body_id` is `null`, the contact block is a placeholder highlighted for the official.
+- Verify the current consolidated-text citation of UDIP on ISAP before the demo (samples use
+  "t.j. Dz. U. z 2022 r. poz. 902"); keep it in one constant.
+
+---
+
+## 5. Standard path and drafting (P0 Subteam B, UI Subteam A)
+
+### 5.1 Department replies
+- Case view: per suggested department a `DepartmentRequest` row (status `Suggested → Sent → Completed`); the
+  official uploads the department's reply file (PDF/DOCX) or pastes text → parsed → stored.
+- For the demo: 1–2 short fictional department replies in `data/seed/department_replies/` (the samples contain
+  only final BKS replies).
+
+### 5.2 Draft generation (`ai_service/drafting/drafter.py`, `ResponseDrafter`)
+- One LLM call. Inputs: questions, department replies `[{code, name, text}]`, optional style example (best
+  similar archived reply). Output:
+  ```python
+  class DraftBody(BaseModel):
+      body: str                    # "Ad 1 … Ad 2 …" when several questions; facts only from replies
+      values_to_verify: list[str]  # exact substrings of body
+      unanswered: list[int]        # question numbers no reply answers → flagged in the UI
+  ```
+- No hallucination rule: anything not in a department reply is not stated; unanswered questions get a marked
+  placeholder, not an invented answer.
+- Without an LLM: deterministic body = for each question "Ad n" + the pasted department text.
+
+### 5.3 Letter assembly (`ai_service/drafting/letter.py`, deterministic, shared by all three paths)
+- Letterhead: "URZĄD MIASTA BYDGOSZCZY / Biuro Komunikacji Społecznej / 85-102 Bydgoszcz, ul. Jezuicka 1 /
+  tel. (52) 58 58 365 / bks@um.bydgoszcz.pl" (from the sample replies).
+- "Bydgoszcz, dnia {d} {month in genitive} {yyyy} r." — own month table, no locale dependency.
+- Case number (`Case.document_number`), addressee (applicant, editable), neutral salutation
+  "Szanowni Państwo," (the official adjusts), body, closing "Z wyrazami szacunku, / Biuro Komunikacji Społecznej
+  / Urząd Miasta Bydgoszczy".
+- Output `Letter{header, body, closing}` + `full_text()`; the exporter turns it into `.docx` / `.txt`.
+
+### 5.4 Department inquiry drafts (P1)
+`InquiryDrafter`: one LLM call per request → one short inquiry text per suggested department with the
+questions assigned to it and the response date for the department. Stored in
+`DepartmentRequest.request_text`; UI shows copy/download buttons. Never sent by the system.
+
+---
+
+## 6. AIService and contract v2 (P0, Subteam B; contract changes agreed by both subteams in hour 1)
+
+### 6.1 `ai_service/service.py` — `AIService` implementing the extended protocol
+Holds one instance each of `DocumentParser`, the LLM modules, `QuestionEmbedder`, `QuestionStore`, routers,
+drafters (all thread-safe; created once via `st.cache_resource` in `app/services/ai.py`). Logs latency, never
+document text. `factory.get_ai_service()` returns `AIService` when `AI_MOCK=0` (default for the demo), else
+`MockAIService` (updated to the new models).
+
+### 6.2 Protocol methods (new / changed)
+
+| Method | Input → Output | Notes |
+|--------|----------------|-------|
+| `extract_text` | `filename, data: bytes` → `ParsedText{text, method}` | app may not import `ai_service.parsing` |
+| `analyze_request` | `AnalyzeInput{text, received_date?}` → `AnalyzeResult` | runs before the case exists (no `case_id`) |
+| `index_case` | `case_id: int, questions: list[str]` → `int` | after saving; reuses the analyzed questions (no 2nd LLM call) |
+| `delete_case` | `case_id: int` | |
+| `draft_response` | `DraftInput` → `DraftResult` | all three paths, `kind` selects |
+| `draft_inquiries` (P1) | `questions, department codes` → `{code: text}` | |
+| `health` | → `Health` | unchanged |
+
+`AnalyzeResult` v2 (additions in **bold**):
+`summary`, **`subject`** (noun phrase for "w zakresie informacji dotyczących …"), **`applicant`**,
+**`letter_date`** (date written on the request, if any), **`questions: list[str]`**,
+**`question_departments: list[list[str]]`**, `suggested_departments`, `similar_cases[]`
+(`case_id: int` — was `str`; `score` = dense coverage 0–1; **`document_number`**, **`has_reply`**,
+**`matches`**), **`triage: Triage{kind: STANDARD | DUPLICATE | OUT_OF_SCOPE, duplicate_case_id,
+competent_body_id, reason}`**.
+
+`DraftInput{kind, questions, case_number, applicant, date, department_replies[], archived_reply_text?,
+competent_body_id?, subject}` → `DraftResult{letter_text, body, values_to_verify, unanswered, notes,
+period_differs}`.
+
+Archived files live on the app side (`storage/files`); the app reads the archived reply text from the case's
+`FileData` via `extract_text` and passes it in — `ai_service` never imports `app/`.
+
+### 6.3 LLM calls and quota
+Per uploaded request: OCR (scans only) + **one analysis call** + routing (not on fast path 1) + one draft call
+(none on fast path 2) ⇒ **2–4 calls**. To get there, merge question extraction and summary into one call
+(`RequestAnalyzer` → `{questions, summary, subject, applicant, letter_date}`); `QuestionExtractor` and
+`RequestSummarizer` stay for scripts. Seeding uses cached LLM output → 0 calls at startup.
+
+---
+
+## 7. Demo data and seeding (P0, Subteam B + A)
+
+### 7.1 Committed seed set (`data/seed/`)
+- The organizers' anonymized sample requests/replies (11 cases from `.local/data/Przykładowe wnioski i
+  odpowiedzi`), committed as agreed. No other `.local/` content.
+- `data/seed/cases.json` — per case: `document_number`, `applicant`, `topic`, `received`, `deadline`,
+  `response_date`, `status`, `assignee` initials, file names. Values from the calendar template
+  (`WNIOSKI O UDOSTĘPNIANIE INFORMACJI PUBLICZNEJ.xlsx`).
+- `data/seed/extracted.json` — cached LLM output per case (questions, summary, subject) generated **once**
+  with the developer's approval (≈ 11–22 calls); seeding and Docker start need no LLM.
+- `data/seed/department_replies/` — 1–2 fictional department replies for the standard-path demo.
+
+### 7.2 Split archive / active cases (calendar shows all 11 — jury: "10 test submissions")
+- **Archive** (`Response_Sent`, real dates, reply indexed): 293/2025, 307/2025, 15/2026, 16/2026, 18/2026,
+  590/2026.
+- **Active** (dates **relative to today** at seed time, so highlighting always works):
+  599/2026 — due today, fast path 1 (↔ 307); 543/2026 — `Query` (extended deadline, kwerenda letter exists;
+  ↔ 293); 17/2026 — due tomorrow, fast path 2 (→ ZDMiKP); 509/2026 — overdue, `Request_Sent`
+  (clarification); one more `New`.
+- If the jury uploads one of these files again, it finds its own seed case as a duplicate — acceptable and
+  shows the feature.
+
+### 7.3 `scripts/seed_all.py` (replaces the stub; run by `app.bootstrap`)
+1. `init_db()` (tables + departments).
+2. SQLite empty → copy seed files to `storage/files/{applications,responses}` and create cases from
+   `cases.json` (one transaction per case, `CaseRepository`), relative dates for active cases.
+3. Qdrant collection empty **or** point count ≠ cases with questions → `store.reset()` + index every case with
+   **`case_id = Case.Id`** from `extracted.json` (the Qdrant volume can be reset independently of `storage/`).
+4. `--if-empty` idempotent; `scripts/reindex.py` = step 3 forced. `seed_qdrant_local.py` stays a dev tool but
+   must not be used for the app's collection (wrong ids).
+- Archive loader (`app/services/archive_loader.py`) is folded into this (or reads `cases.json`) so dates,
+  topics and applicants are real instead of "one month ago".
+
+### 7.4 Bake the embedding model (P0)
+`scripts/download_models.py` downloads `EMBEDDING_MODEL` with sentence-transformers into the image's HF cache;
+runtime sets `HF_HUB_OFFLINE=1` (security baseline §8 of part 1). First search is then fast and needs no
+internet.
+
+---
+
+## 8. Subteam A — calendar, registry, case view, UI (P0 unless marked)
+
+### 8.1 Deadlines (`app/services/deadlines.py`, unit-tested)
+- `deadline = received + 14 days`; extension (`Query`): `received + 2 months`, plus `notify_by` = the 14-day
+  deadline. Saturday/Sunday/public holiday → next working day (KPA art. 57 §4 — confirm with mentors). Polish
+  holidays: `holidays` package (`uv add holidays`, check its docs).
+- Highlight level: `overdue | today | tomorrow | within_3_days | ok | done`.
+
+### 8.2 Dashboard / calendar (`views/dashboard.py`)
+- Columns as in the template: Lp., case number, applicant, topic, received, deadline, days left, reply date,
+  status, initials. Oldest → newest, **year filter**, row colors by highlight level (pandas `Styler` in
+  `st.dataframe`), status badges; row selection opens the case view.
+- P1: month calendar view (deadlines as events).
+
+### 8.3 Intake (`views/intake.py`, replaces the bare upload flow)
+Upload → `extract_text` → `analyze_request` (spinner with steps) → triage banner (fast path / standard) →
+similar cases (score, case number, topic, matched questions) → suggested departments (names from
+`departments.json`) → editable metadata (case number, applicant, topic, received date, deadline from
+`deadlines.py`, initials) → **Save** → `index_case(case.id, questions)` → case view.
+
+### 8.4 Case view (`views/case.py`) and registry (`app/services/registry.py`)
+- Metadata edit, status changes with allowed transitions + `CaseHistory` (already in `CaseRepository.update`),
+  history list.
+- Department requests (P1: inquiry drafts), department reply upload.
+- **Draft editor**: generated letter in a text area (yellow = values to verify, red marker = unanswered);
+  "Regenerate".
+- **Anonymization review**: `anonymization.anonymize(body)` → list of proposals with checkboxes (all checked),
+  preview with **gray** highlight for proposed and **black** for confirmed spans (escaped HTML via
+  `st.markdown`); confirm → `redact()` with the confirmed mapping (export replaces confirmed spans with
+  "█████" or the placeholder — team choice). Only the body is anonymized; the code-generated header (addressee)
+  is not.
+- **Export** (`app/services/exporter.py`): `.docx` (python-docx: letterhead, paragraphs) and `.txt` via
+  `st.download_button`; saved as `FileData(RESPONSE)` under `storage/files/responses`, `case.response_id` set,
+  status `Response_Generated`; button "Mark as sent" → `Response_Sent` + `response_date`.
+
+### 8.5 Standalone "Anonymize document" tab (P0 — jury test 3)
+Upload any PDF/DOCX → text → proposals → confirm → download redacted `.txt`/`.docx`. Reuses the components of
+8.4; no case needed.
+
+### 8.6 Schema changes (SQLite, `create_all` does not migrate → delete `storage/app.db` after pulling)
+- `Case`: `applicant: str | None`, `triage: str | None`, `similar_case_id: int | None`,
+  `draft_text: str | None`, `notify_by: date | None`.
+- `DepartmentRequest`: `reply_file_id` (FK `FileData`, nullable), `reply_text: str | None`.
+- `contracts/enums.py`: `FileType.DEPARTMENT_REPLY` (shared file → announce).
+
+### 8.7 Knowledge base tab (`views/knowledge_base.py`, P1 — jury test 6)
+Archive list (case number, topic, reply yes/no), **add archive pair** (request + reply + number + dates →
+`Response_Sent` case → `extract_text` → `analyze` → `index_case`), delete case (SQLite + `delete_case`),
+"Reindex all". Legislation (P2): upload and list files only — no legal RAG in the MVP (say so in the
+presentation). Sidebar: `health()` (LLM provider, archive size, Qdrant status).
+
+### 8.8 Polish UI labels (P2)
+Small `app/ui/i18n.py` dict; code stays English.
+
+---
+
+## 9. Cross-cutting
+
+### 9.1 Ownership (4 people)
+| Person | Work |
+|--------|------|
+| A1 | Step 0, deadlines, dashboard (highlight, year filter), registry + status transitions, schema changes |
+| A2 | intake view, case view, draft editor, anonymization review + standalone tab, exporter |
+| B1 | contract v2, `AIService`, `RequestAnalyzer`, triage logic, routing extension + external bodies, drafters + letter template |
+| B2 | dense score in `QuestionStore`, calibration, seed set + `seed_all.py`/`reindex.py`, model baking, knowledge-base backend |
+
+### 9.2 Timeline (≈ 8 h; compress P1 if less)
+| Hours | Milestone |
+|-------|-----------|
+| 0–1 | Step 0; contract v2 + updated mock merged (both subteams); seed `cases.json` drafted |
+| 1–4 | parallel: A on deadlines/dashboard/intake/case view vs mock; B on service, fast paths, drafting, seeding |
+| 4–5 | integration with `AI_MOCK=0`; end-to-end on 599 (fast path 1), 17 (fast path 2), 18 (standard) |
+| 5–7 | anonymization UI + export, P1 items (inquiries, knowledge base), threshold tuning, prompt fixes |
+| 7–8 | fresh clone → `docker compose up --build` with and without `.env`; demo script; video/slides |
+
+### 9.3 Text quality of reply PDFs
+pypdf splits words in the city's reply PDFs ("B ydgoszcz", "infor macji"). Add `normalize_text()` (collapse
+whitespace, join soft hyphens/line breaks) in the parser; the LLM tolerates the remaining artifacts. OCR of
+replies only if a draft is clearly broken (costs quota).
+
+### 9.4 Tests (no real LLM calls)
+Deadlines (weekends, holidays, extension), triage decision with fake vectors and thresholds, routing validator
+for `competent_body_id`, `values_to_verify ⊂ body` validator, letter assembly (Polish date), seed idempotency,
+exporter output, mock conforms to protocol v2.
+
+### 9.5 Jury LLM key
+Decide before the demo: hand over a capped key separately, or `LLM_PROVIDER=none` (fallbacks: whole text as one
+question, text start as summary, no routing → triage only from similarity, deterministic drafts). Both must
+start cleanly.
+
+---
+
+## 10. Definition of done (mapped to the jury tests)
+
+1. **Similar cases:** upload 599 → "Same question found (BKS.IV.1431.307.2025)" + adapted draft with flagged
+   values; similar-case list with scores and matched questions.
+2. **Draft from department input:** case 18 + seeded department reply → draft letter in BKS format.
+3. **Anonymization:** a file with personal data in the standalone tab → gray proposals → confirm → black →
+   redacted export.
+4. **Usability/stability:** whole flow without errors, also with `LLM_PROVIDER=none`.
+5. **Calendar:** 11 cases oldest → newest, year filter, overdue/today/tomorrow highlighted, `Query` case with
+   extended deadline, statuses and initials.
+6. **Data management:** knowledge-base tab adds and removes an archive case; reindex works (P1).
+7. Fresh clone → `docker compose up --build` → seeded app, no manual steps.
+
+## 11. Questions for the mentors
+- What counts as "the same question" for re-use (same period only, or the same data type)?
+- Is the redirect letter (art. 4 ust. 3) the expected answer when UMB does not hold the data, or a formal
+  forwarding?
+- Deadline for departments in inquiries; KPA art. 57 §4 for UDIP deadlines; is `.docx` acceptable for `.doc`?
+- Current consolidated-text citation of UDIP to use in letters.
