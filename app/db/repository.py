@@ -12,6 +12,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from app.db.models import Case, CaseHistory, Department, DepartmentRequest, FileData
@@ -23,6 +24,9 @@ DEPARTMENTS_JSON = Path(__file__).resolve().parents[2] / "data" / "departments.j
 class CaseRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def is_empty(self) -> bool:
+        return self.session.exec(select(Case.id).limit(1)).first() is None
 
     def add(self, case: Case) -> Case:
         self.session.add(case)
@@ -46,6 +50,27 @@ class CaseRepository:
         self.session.refresh(application)
         return case
 
+    def add_case_with_application_and_response(
+        self, case: Case, application: FileData, response: FileData
+    ) -> Case:
+        """Insert a new case with both its application and response files in one transaction.
+
+        Both files must be unsaved. They are linked through the relationships, so SQLAlchemy
+        inserts ``file_data`` first and fills ``case.application_id`` / ``case.response_id``.
+        """
+        if application.file_type != FileType.APPLICATION:
+            raise ValueError("application must have file_type FileType.APPLICATION.")
+        if response.file_type != FileType.RESPONSE:
+            raise ValueError("response must have file_type FileType.RESPONSE.")
+        case.application = application
+        case.response = response
+        self.session.add(case)
+        self.session.commit()
+        self.session.refresh(case)
+        self.session.refresh(application)
+        self.session.refresh(response)
+        return case
+
     def add_all(self, cases: Sequence[Case]) -> list[Case]:
         self.session.add_all(cases)
         self.session.commit()
@@ -55,13 +80,23 @@ class CaseRepository:
         return list(cases)
 
     def update(self, case: Case) -> Case:
-        """Persist changes made to an already stored case."""
+        """Persist changes made to an already stored case and write a ``CaseHistory`` snapshot."""
         if case.id is None:
             raise ValueError("Cannot update a case that has not been added yet.")
         self.session.add(case)
+        self.session.add(CaseHistory.snapshot(case))
         self.session.commit()
         self.session.refresh(case)
         return case
+
+    def get_all_cases(self) -> list[Case]:
+        """Return all cases ordered oldest → newest with assignee eager-loaded."""
+        statement = (
+            select(Case)
+            .options(selectinload(Case.assignee))
+            .order_by(Case.created_date, Case.id)
+        )
+        return list(self.session.exec(statement).all())
 
     def get_cases_by_assignee_id(self, assignee_id: int) -> list[Case]:
         statement = (

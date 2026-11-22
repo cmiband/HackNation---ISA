@@ -1,6 +1,12 @@
+from datetime import timedelta
 from types import SimpleNamespace
 
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine, select
+
+from app.db.models import Case
 from app.ui.views.upload import ALLOWED_EXTENSIONS, format_size, load_files, split_files, summarize
+from contracts.enums import CaseStatus, FileType
 
 
 def test_allowed_extensions_are_pdf_and_word():
@@ -42,17 +48,26 @@ def test_split_files_rejects_wrong_types():
 
 
 def test_load_files_saves_all_as_applications(tmp_path):
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
     apps_dir = tmp_path / "applications"
     files = [
         SimpleNamespace(name="a.pdf", size=3, getvalue=lambda: b"pdf"),
         SimpleNamespace(name="b.docx", size=4, getvalue=lambda: b"docx"),
     ]
     seen = []
-    saved = load_files(
-        files,
-        on_file=lambda idx, total, f, path: seen.append((idx, total, f.name, path)),
-        applications_dir=apps_dir,
-    )
+    with Session(engine) as session:
+        saved = load_files(
+            files,
+            on_file=lambda idx, total, f, path: seen.append((idx, total, f.name, path)),
+            applications_dir=apps_dir,
+            session=session,
+        )
+        cases = session.exec(select(Case).order_by(Case.id)).all()
+        assert [c.application.filename for c in cases] == ["a.pdf", "b.docx"]
+        assert all(c.application.file_type == FileType.APPLICATION for c in cases)
+        assert all(c.status == CaseStatus.NEW for c in cases)
+        assert all(c.response_deadline - c.created_date == timedelta(days=14) for c in cases)
     assert saved == [apps_dir / "a.pdf", apps_dir / "b.docx"]
     assert saved[0].read_bytes() == b"pdf"
     assert saved[1].read_bytes() == b"docx"

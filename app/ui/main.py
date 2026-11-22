@@ -1,14 +1,27 @@
 import streamlit as st
 from sqlmodel import Session, select
+from app.db.models import Case
 from app.config import settings
-from app.db.engine import check_db_connection
+from app.db.engine import check_db_connection, init_db
+from app.ui.views import dashboard, upload
 from app.ui.views import upload
+from app.db.engine import engine
+
+
+@st.cache_resource
+def _init_db_once() -> bool:
+    """Create tables and seed departments / archived cases once per process (idempotent)."""
+    init_db()
+    return True
+
 
 st.set_page_config(
     page_title="Intelligent Assistant (UDIP) - Bydgoszcz",
     page_icon="🏛️",
     layout="wide",
 )
+
+_init_db_once()
 
 st.markdown(
     """
@@ -78,6 +91,4 @@ with tab_upload:
     upload.render()
 
 with tab_dashboard:
-    st.subheader("📊 Case Dashboard")
-    st.caption("Organizer, deadlines tracking, and calendar overview.")
-    st.info("Dashboard placeholder.")
+    dashboard.render()

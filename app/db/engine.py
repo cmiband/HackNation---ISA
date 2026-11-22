@@ -1,29 +1,33 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import text
-from sqlmodel import Session, create_engine
+from sqlalchemy import Engine, text
+from sqlmodel import Session, SQLModel, create_engine
+
 from app.config import settings
 
 # SQLite connection args for multithreaded Streamlit usage
 connect_args = {"check_same_thread": False}
 engine = create_engine(settings.DATABASE_URL, echo=False, connect_args=connect_args)
 
-
 def get_session():
     with Session(engine) as session:
         yield session
 
 
-def init_db() -> None:
-    """Create all tables and seed departments if the table is empty. Idempotent."""
+def init_db(db_engine: Engine | None = None) -> None:
+    """Create all tables, seed departments and the archived cases if their tables are empty. Idempotent."""
     # Local imports: models must be registered on SQLModel.metadata before create_all.
     from app.db import models  # noqa: F401
     from app.db.repository import DepartmentRepository
+    from app.services.archive_loader import load_archive_if_empty
 
-    settings.ensure_directories()
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
+    target_engine = db_engine or engine
+    if db_engine is None:
+        settings.ensure_directories()
+    SQLModel.metadata.create_all(target_engine)
+    with Session(target_engine) as session:
         DepartmentRepository(session).load_departments()
+        load_archive_if_empty(session, settings.applications_dir, settings.responses_dir)
 
 
 def check_db_connection() -> dict[str, str | bool]:

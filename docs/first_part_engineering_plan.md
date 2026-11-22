@@ -35,7 +35,7 @@ We are building an **Intelligent Assistant for Public Officials** to handle **Ac
 
 ### OUT OF SCOPE for Part 1
 - **Part 2 (not designed yet):** uploading departmental responses, generating draft reply letters, exporting final `.doc` / `.txt` response files.
-- **Anonymization:** a **separate, self-contained module** (`anonymization/`) inside the same monolith, used only after Part 2. It depends on no other module. Its implementation, interface, data model and UI are **not decided** — do not assume any solution.
+- **Anonymization UI and redaction flow:** the module itself is specified in §6.7; how Part 2 uses it (highlight → official confirms → redact) is designed with Part 2.
 
 *(Design Part 1 so Part 2 modules and the anonymization module plug in without refactoring.)*
 
@@ -74,7 +74,7 @@ To let both subteams work in parallel, **implement the `contracts/` package firs
 - `similar_cases[]`: `{case_id, score (0.0–1.0), year, summary, departments}`
 - `suggested_departments[]`: department **codes only** (e.g. `"WE"`), most relevant first (team decision). Subteam A looks up names/e-mails in `data/departments.json` (or the `Department` table seeded from it).
 - `kind`: `ARCHIVE_CASE | LAW | ORDER`
-- Part 2 methods are added when Part 2 is designed. Anonymization is **not** part of this protocol.
+- Part 2 methods are added when Part 2 is designed. Anonymization is **not** part of this protocol (see §6.7).
 
 ### 4.2 Usage rules
 - Pydantic models live in `contracts/models.py`, enums in `contracts/enums.py`.
@@ -92,6 +92,7 @@ To let both subteams work in parallel, **implement the `contracts/` package firs
 
 Case
   Id                int, PK
+  DocumentNumber    str, nullable, indexed - official case number, e.g. BKS.IV.1431.15.2026
   Topic             str, nullable - short summary of the request
   CreatedDate       date - date the case was registered
   ResponseDeadline  date - statutory response deadline (14 days or extended)
@@ -162,7 +163,7 @@ Use one DB connection/session per thread or Streamlit session.
 - `CaseHistory.snapshot(case)` builds a history row from a persisted case.
 
 **Implemented** in `app/db/repository.py` (each class takes a `Session`; every write commits and refreshes):
-- `CaseRepository`: `add`, `add_with_application`, `add_all`, `update`, `get_cases_by_assignee_id`, `get_case_by_id`.
+- `CaseRepository`: `is_empty`, `add`, `add_with_application`, `add_case_with_application_and_response`, `add_all`, `update`, `get_cases_by_assignee_id`, `get_case_by_id`, `get_all_cases` (oldest → newest, eager-loads `assignee`).
   - `add_with_application(case, application)` is a shortcut: it checks that `application.file_type` is `FileType.APPLICATION`, sets `case.application` and calls `add`; it raises `ValueError` otherwise.
   - **How to create a `Case`:** use `CaseRepository.add` (one case) or `add_all` (many). The caller must put the application `FileData` object in the `Case.application` field, and that `FileData` must **not** be inserted yet (no `session.add`, no `FileDataRepository.add`, no commit). SQLAlchemy then inserts the `file_data` row first, fills `case.application_id` and inserts the `case` row, all in one transaction, so there is never a stored case without an application or an orphan application file. Do not set `application_id` by hand.
     ```python
@@ -173,11 +174,12 @@ Use one DB connection/session per thread or Streamlit session.
   - Do not call `FileDataRepository.add(application)` before creating the case. It commits on its own, which breaks the single transaction.
 - `DepartmentRepository`: `add`, `get_by_id`, `load_departments`.
   - `load_departments()` seeds the `department` table from `data/departments.json` (`code`, `name`, `responsibilities`; other fields ignored), but only when the table is empty.
-- `app/db/engine.py::init_db()` creates all tables (`SQLModel.metadata.create_all`) and calls `load_departments()`. It is idempotent. `app/ui/main.py` calls it once per process through `st.cache_resource`, so both Docker and native runs set up the DB on start.
+- `app/db/engine.py::init_db()` creates all tables (`SQLModel.metadata.create_all`) and calls `load_departments()` and `app/services/archive_loader.py::load_archive_if_empty()` (loads application/response pairs from `storage/files/{applications,responses}` as archived `Response_Sent` cases owned by user `AL`, only when the `case` table is empty; manual rerun: `scripts/archive_loader.py`). It is idempotent. `app.bootstrap` also calls it before launching Streamlit. `app/ui/main.py` calls it once per process through `st.cache_resource`, so both Docker and native runs set up the DB on start.
+  - Archive load does nothing when `applications/` has no files. **TODO (Subteam B):** `load_archive()` only writes the relational DB (`User`, `FileData`, `Case`); the archived application/response files must also be indexed into the vector database (`QuestionStore`, `ai_service/vector_store/`) so similar-case search can find them. Marked in `app/services/archive_loader.py`.
 - `FileDataRepository`: `add`, `add_all`, `get_by_id`.
 - `DepartmentRequestRepository`: `add`, `update`, `get_by_id`, `get_dep_requests_by_case_id`.
 - `CaseHistoryRepository`: `add`.
-- Repositories do no business logic. `app/services/registry.py` writes a `CaseHistory.snapshot` after each `Case` change.
+- Repositories do no business logic, except `CaseRepository.update`, which writes a `CaseHistory.snapshot` in the same commit as the change. `app/services/registry.py` handles the remaining rules (status transitions).
 
 ### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested)
 - `deadline = received_date + 14 days` (art. 13 ust. 1 UDIP; the day of receipt is not counted).
@@ -191,10 +193,13 @@ Navigation: `st.tabs` in `app/ui/main.py`; each tab's content lives in `app/ui/v
 Current tabs: **System Status** (DB + storage check), **Upload Request** (`views/upload.py`: multi-file drag & drop
 restricted to `.pdf` / `.docx` — wrong files are listed in a red error with the reason and excluded from the summary;
 read-only summary table, accept/reject — all files are treated as Applications, accepting resets the UI, displays
-`st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard** (placeholder).
-  - **DB integration hook (`app/ui/views/upload.py` → `load_files()`):** inside the per-file `for` loop, immediately
-    after `save_uploaded_file(...)` returns `saved_path`, call the DB/registry function to persist `FileData`
-    (`Filename=saved_path.name` — reflects any `_1`/`_2` deduplication — and `FileType.APPLICATION`) and `Case`.
+`st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard**
+(`views/dashboard.py`: full-width table querying SQLite via `CaseRepository.get_all_cases()` oldest → newest with
+columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline`, `Days to deadline`, `Reply date`, `Status`).
+  - **DB integration (`app/ui/views/upload.py` → `load_files()`):** done. After `save_uploaded_file(...)` returns
+    `saved_path`, `CaseRepository.add_with_application` persists `FileData` (`filename=saved_path.name` — reflects any
+    `_1`/`_2` deduplication — and `FileType.APPLICATION`) and a `Case` (status `NEW`, `created_date=today`,
+    `response_deadline=today+14d` placeholder until `services/deadlines.py` exists). No history row on creation. Optional `session` arg (default: new `Session(engine)`) for tests.
 
 - **Calendar / Table** (`views/calendar.py`): requests oldest → newest, year filter, deadline highlighting, status, days remaining, initials, sequence number, request ID, topic summary, dates.
 - **Upload & Triage** (`views/intake.py`): upload (file is being parsed on the AI-side of the project) → `analyze_request` → show similar cases + suggested departments → official edits/confirms metadata → save.
@@ -222,7 +227,8 @@ read-only summary table, accept/reject — all files are treated as Applications
   - `LLM_MODEL` — Pydantic AI model string `<provider>:<model>` (e.g. `openai:…`, `anthropic:…`, `google:…`); the API key is read from the provider's standard variable (`GEMINI_API_KEY`, `OPENAI_API_KEY`, …). A comma-separated list is a **fallback chain** (Pydantic AI `FallbackModel`): on an API error, e.g. HTTP 429 when the free-tier daily quota (~20 requests/model) is used up, the next model is used. Default chain in `.env.example`: Gemini Flash models, then Flash Lite (~500 requests/day).
   - `LLM_BASE_URL` + `LLM_API_KEY` (optional) — OpenAI-compatible endpoint (Ollama, vLLM, llama.cpp server); then `LLM_MODEL` is a plain model name. This is the production switch to a local model.
   - `LLM_PROVIDER=none` (or no `LLM_MODEL`) — LLM disabled, deterministic fallbacks.
-- **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers. (`infer_parent_file_id` extracts case signatures like `BKS.IV.1431.18.2026` from filenames for scripts.)
+- **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers.
+- **Implemented — request summary** (`summarization.py`): `RequestSummarizer.from_env().summarize(request_text)` → `str`, one short description of the **whole** request (1–2 sentences, ≤ 300 characters, original language, no personal data) for the frontend — e.g. `Case.topic` / `AnalyzeResult.summary`. One LLM call per request; a longer answer is sent back for a retry. Without an LLM: the beginning of the text, cut at a word boundary.
 - **Implemented — OCR** (`ocr.py`): `LLMOcr.transcribe(pdf_bytes)` sends a scanned PDF to the multimodal LLM (Gemini) and returns the verbatim text.
 
 ### 6.3a Document Parser (`ai_service/parsing/`) — implemented
@@ -260,6 +266,23 @@ read-only summary table, accept/reject — all files are treated as Applications
 - Prompt: `ai_service/llm/prompts/route_departments.md` (BKS only for its own duties).
 - Without an LLM: empty suggestions. Planned deterministic fallback: k-NN vote from departments of similar past cases + embedding match against department scopes.
 - Contract: `AnalyzeResult.suggested_departments` is `list[str]` of codes (= `RoutingResult.all_departments()`); `DepartmentSuggestion` was removed.
+
+### 6.7 Anonymization Module (`anonymization/`) — implemented (MVP)
+- **Separate, self-contained module** inside the monolith; imports none of `app/`, `ai_service/`, `contracts/`. Used by Part 2 (draft responses) and by the jury's anonymization test. Runs locally (no LLM, no network).
+- **Interface:** `anonymize(text: str) -> dict[str, str]` — plain text in; out a mapping **key** = exact substring of the input to anonymize → **value** = placeholder `[TYPE_N]` (e.g. `[PERSON_1]`, `[PESEL_1]`), numbered per type in order of appearance; the same value always gets the same placeholder. Placeholder format can still change (open question).
+  - `Anonymizer(AnonymizerConfig(...))` — build once (spaCy load ~1–2 s), thread-safe, share via `st.cache_resource`; `anonymize()` / `default_anonymizer()` use a cached default instance.
+  - `redact(text, mapping)` applies a (possibly official-edited) mapping: longest keys first, one pass.
+  - The mapping is a proposal: the official confirms or deselects entries before redaction (human-in-the-loop).
+- **Data to anonymize:** 28 categories from the task's list — the full list with the detection method is in `anonymization/__init__.py`. Groups:
+  - identifiers (exact span): names of private persons, PESEL, ID card, passport, NIP, bank account, phone, e-mail, address, date/place of birth, vehicle plate, land register (KW) and plot numbers;
+  - special categories (health, family, finances, social benefits, beliefs, union/party membership, ethnicity, sexual orientation, criminal record) and legally protected secrets — keyword-based, the **whole sentence** is proposed (`[HEALTH_1]`, `[CONFIDENTIAL_1]`, …).
+  - Signatures and images are out of scope (text input only).
+- **Technology:** Microsoft Presidio (`presidio-analyzer`) + spaCy `pl_core_news_md` (dependency pinned by URL in `pyproject.toml`, installed by `uv sync`, so it is in the Docker image).
+  - `service.py` — NLP engine (only `persName` → `PERSON` from NER), registry, overlap resolution (longer span wins, then higher score), exclusions, placeholders.
+  - `recognizers.py` — Polish pattern recognizers (checksums from `checksums.py` for PESEL, NIP, ID card, NRB; context words for passport/vehicle plates) and `SensitiveSentenceRecognizer` (keyword stems per category).
+  - **Exclusions** (`AnonymizerConfig`): `public_officials` (loose match covers Polish inflection, e.g. `Rafał Bruski` ~ `Rafała Bruskiego`), `allow_list` (city hall address etc.), `official_email_domains` (default `bydgoszcz.pl` and subdomains).
+- **Known limits / next steps:** inflected forms of one name get separate placeholders; sentence keywords give false positives (e.g. budget "kredyt"); optional LLM recognizer for trade/tax/bank secrets not built yet.
+- Tests: `tests/anonymization/` (real spaCy model, no LLM).
 
 ---
 
@@ -303,4 +326,4 @@ read-only summary table, accept/reject — all files are treated as Applications
 - **UI language:** users and jury are Polish officials — Polish UI labels (code stays English)?
 - **Jury test 6** (uploading data, updating legislation, managing the archive): confirm the knowledge-base page is in Part 1 scope.
 - **Mentors:** is KPA art. 57 §4 applied to UDIP deadlines? Case reference format? Response template / letterhead? Is `.docx` acceptable instead of `.doc`?
-- **Part 2 and the anonymization module:** to be designed.
+- **Part 2:** to be designed. **Anonymization:** final placeholder format; switch to `pl_core_news_lg` only if `_md` misses names (+~500 MB image).

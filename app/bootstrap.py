@@ -2,7 +2,7 @@ import os
 import sys
 
 from app.config import settings
-from app.db.engine import check_db_connection
+from app.db.engine import check_db_connection, init_db
 
 
 def bootstrap():
@@ -11,6 +11,9 @@ def bootstrap():
     print(f"[bootstrap] Storage root: {settings.STORAGE_DIR}", flush=True)
     print(f"[bootstrap] Applications dir: {settings.applications_dir}", flush=True)
     print(f"[bootstrap] Responses dir: {settings.responses_dir}", flush=True)
+
+    print("[bootstrap] Creating tables and seeding departments / archived cases if empty...", flush=True)
+    init_db()
 
     print("[bootstrap] Checking SQLite database connection...", flush=True)
     db_status = check_db_connection()
