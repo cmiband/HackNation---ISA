@@ -65,6 +65,7 @@ HackNation---ISA/
 │       ├── i18n.py           # Polish UI labels
 │       ├── components/       # status badges, deadline chips
 │       └── views/            # one render() per tab; NOT `pages/` (Streamlit would add its own sidebar nav)
+│           ├── dashboard.py      # implemented: full-width case table queried from SQLite (oldest → newest)
 │           ├── upload.py         # implemented: multi-file drag & drop (PDF/DOCX), summary, accept/reject
 │           ├── calendar.py       # table + calendar, year filter, highlighting
 │           ├── intake.py         # upload → triage → verify → save

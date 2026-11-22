@@ -163,7 +163,7 @@ Use one DB connection/session per thread or Streamlit session.
 - `CaseHistory.snapshot(case)` builds a history row from a persisted case.
 
 **Implemented** in `app/db/repository.py` (each class takes a `Session`; every write commits and refreshes):
-- `CaseRepository`: `is_empty`, `add`, `add_with_application`, `add_case_with_application_and_response`, `add_all`, `update`, `get_cases_by_assignee_id`, `get_case_by_id`.
+- `CaseRepository`: `is_empty`, `add`, `add_with_application`, `add_case_with_application_and_response`, `add_all`, `update`, `get_cases_by_assignee_id`, `get_case_by_id`, `get_all_cases` (oldest → newest, eager-loads `assignee`).
   - `add_with_application(case, application)` is a shortcut: it checks that `application.file_type` is `FileType.APPLICATION`, sets `case.application` and calls `add`; it raises `ValueError` otherwise.
   - **How to create a `Case`:** use `CaseRepository.add` (one case) or `add_all` (many). The caller must put the application `FileData` object in the `Case.application` field, and that `FileData` must **not** be inserted yet (no `session.add`, no `FileDataRepository.add`, no commit). SQLAlchemy then inserts the `file_data` row first, fills `case.application_id` and inserts the `case` row, all in one transaction, so there is never a stored case without an application or an orphan application file. Do not set `application_id` by hand.
     ```python
@@ -193,7 +193,9 @@ Navigation: `st.tabs` in `app/ui/main.py`; each tab's content lives in `app/ui/v
 Current tabs: **System Status** (DB + storage check), **Upload Request** (`views/upload.py`: multi-file drag & drop
 restricted to `.pdf` / `.docx` — wrong files are listed in a red error with the reason and excluded from the summary;
 read-only summary table, accept/reject — all files are treated as Applications, accepting resets the UI, displays
-`st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard** (placeholder).
+`st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard**
+(`views/dashboard.py`: full-width table querying SQLite via `CaseRepository.get_all_cases()` oldest → newest with
+columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline`, `Days to deadline`, `Reply date`, `Status`).
   - **DB integration (`app/ui/views/upload.py` → `load_files()`):** done. After `save_uploaded_file(...)` returns
     `saved_path`, `CaseRepository.add_with_application` persists `FileData` (`filename=saved_path.name` — reflects any
     `_1`/`_2` deduplication — and `FileType.APPLICATION`) and a `Case` (status `NEW`, `created_date=today`,

@@ -12,6 +12,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from app.db.models import Case, CaseHistory, Department, DepartmentRequest, FileData
@@ -87,6 +88,15 @@ class CaseRepository:
         self.session.commit()
         self.session.refresh(case)
         return case
+
+    def get_all_cases(self) -> list[Case]:
+        """Return all cases ordered oldest → newest with assignee eager-loaded."""
+        statement = (
+            select(Case)
+            .options(selectinload(Case.assignee))
+            .order_by(Case.created_date, Case.id)
+        )
+        return list(self.session.exec(statement).all())
 
     def get_cases_by_assignee_id(self, assignee_id: int) -> list[Case]:
         statement = (

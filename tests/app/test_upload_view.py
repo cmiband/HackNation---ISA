@@ -5,8 +5,8 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.models import Case
-from contracts.enums import CaseStatus, FileType
 from app.ui.views.upload import ALLOWED_EXTENSIONS, format_size, load_files, split_files, summarize
+from contracts.enums import CaseStatus, FileType
 
 
 def test_allowed_extensions_are_pdf_and_word():
