@@ -109,7 +109,7 @@ HackNation---ISA/
 │   ├── retrieval/
 │   │   └── similar_cases.py  # SimilarCasesRetriever: embedder + QuestionStore (case & per-question search)
 │   ├── routing/
-│   │   ├── directory.py      # DepartmentDirectory: loads data/departments.json
+│   │   ├── directory.py      # DepartmentDirectory, ExternalBodyDirectory (data/*.json)
 │   │   └── router.py         # DepartmentRouter: questions → department codes per question (LLM)
 │   ├── drafting/             # Part 2 — not designed yet
 │   │   └── __init__.py
@@ -126,6 +126,7 @@ HackNation---ISA/
 │
 ├── data/                     # committed, read-only inputs
 │   ├── departments.json      # 29 units scraped from BIP (scripts/scrape_departments.py)
+│   ├── external_bodies.json  # 34 municipal units/companies outside the City Hall (scripts/scrape_external_bodies.py)
 │   ├── templates/
 │   │   └── response_template.docx   # Part 2
 │   ├── eval/
@@ -137,6 +138,7 @@ HackNation---ISA/
 │
 ├── scripts/
 │   ├── scrape_departments.py # BIP → data/departments.json (re-run to refresh)
+│   ├── scrape_external_bodies.py # BIP → data/external_bodies.json (municipal units, contacts only)
 │   ├── extract_questions.py  # manual check: parse → extract questions → (--route) departments
 │   ├── seed_qdrant_local.py  # extract/cache .local/ requests, index into Qdrant, test hybrid search
 │   ├── archive_loader.py     # manual rerun of app/services/archive_loader.py (also runs in init_db when no cases exist)

@@ -29,6 +29,8 @@ class AnalyzeInput(BaseModel):
 class RequestQuestion(BaseModel):
     text: str  # self-contained question / request for information, original language
     departments: list[str] = Field(default_factory=list)  # unit codes to ask, most relevant first
+    # no department: id of the municipal unit/company holding the data (data/external_bodies.json), else None
+    external_body_id: str | None = None
 
 
 class QuestionMatch(BaseModel):
@@ -49,7 +51,8 @@ class Triage(BaseModel):
     kind: TriageKind = TriageKind.STANDARD
     # DUPLICATE: cases with practically the same questions, best first. The app checks which have a reply.
     duplicate_case_ids: list[int] = Field(default_factory=list)
-    # OUT_OF_SCOPE: id of the competent body (data/external_bodies.json, coming later); None = unknown.
+    # OUT_OF_SCOPE: id of the competent municipal unit/company (data/external_bodies.json); None = not on the
+    # list (e.g. state bodies) -> the official fills in the addressee.
     competent_body_id: str | None = None
     reason: str = ""  # short explanation for the official
 

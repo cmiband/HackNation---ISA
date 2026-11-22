@@ -150,7 +150,10 @@ class AIService:
             subject=analysis.subject,
             applicant=analysis.applicant,
             letter_date=analysis.letter_date,
-            questions=[RequestQuestion(text=q.question, departments=q.departments) for q in routing.questions],
+            questions=[
+                RequestQuestion(text=q.question, departments=q.departments, external_body_id=q.external_body)
+                for q in routing.questions
+            ],
             suggested_departments=routing.all_departments(),
             similar_cases=similar,
             triage=triage,
@@ -208,7 +211,7 @@ class AIService:
         except Exception:
             log.exception("department routing failed")
             warnings.append("Department suggestions are unavailable (LLM error).")
-            return DepartmentRouter(None, self.router.directory).route(questions)
+            return DepartmentRouter(None, self.router.directory, self.router.bodies).route(questions)
 
     def _similar_cases(
         self, hits: Sequence[SimilarCaseHit], question_count: int
@@ -253,9 +256,16 @@ class AIService:
             )
         no_department = bool(routing.questions) and not routing.all_departments()
         if self.router.uses_llm and no_department:
+            body_id = routing.competent_body()
+            body = self.router.bodies.by_id.get(body_id) if body_id else None
             return Triage(
                 kind=TriageKind.OUT_OF_SCOPE,
-                reason="No City Hall unit holds this information and no earlier case asked the same.",
+                competent_body_id=body_id,
+                reason=(
+                    f"No City Hall unit holds this information; it is held by {body.name}."
+                    if body
+                    else "No City Hall unit or municipal unit holds this information (e.g. a state body)."
+                ),
             )
         return Triage()
 

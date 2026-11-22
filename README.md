@@ -204,6 +204,17 @@ router.directory.by_code["WE"].name            # name / email / url for the UI
 Codes are validated against `departments.json` (the model retries on unknown codes). Without an LLM the
 suggestions are empty.
 
+If no City Hall unit holds the data, the router returns the id of the **municipal unit or company outside the
+City Hall** that does (`QuestionRouting.external_body`, `result.competent_body()`; in `AnalyzeResult`:
+`questions[i].external_body_id` and `triage.competent_body_id` for `OUT_OF_SCOPE`). The list
+(`data/external_bodies.json`, 34 budget units, budget establishments, municipal companies and cultural
+institutions with address / phone / e-mail; no names of people) is scraped from BIP → "Jednostki
+Organizacyjne"; refresh with `uv run python scripts/scrape_external_bodies.py`. State bodies (Police, courts,
+voivodeship conservator, …) are not on the list in MVP v0 → `competent_body_id = None`, the official fills in
+the addressee. Checked with Gemini: trams → ZDMiKP, water prices → MWiK, MOPS benefits → MOPS, police →
+none; the samples 15/17 are still routed to City Hall units (the request text does not reveal that the data
+sits elsewhere — a repeated request is caught as a duplicate of the archived redirect instead).
+
 ### Vector store (`ai_service/vector_store/`)
 
 Qdrant collection `archive_questions`: one point per question with a dense vector (mmlw-roberta-base, 768)

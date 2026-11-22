@@ -174,7 +174,13 @@ Samples 15 (sculpture → Kujawsko-Pomorski Wojewódzki Konserwator Zabytków) a
 company → ZDMiKP) are redirect letters: "Urząd Miasta Bydgoszczy nie jest dysponentem wnioskowanych danych …
 art. 4 ust. 3 … winien się zwrócić do …" + contact data.
 
-### 4.1 External bodies directory (`data/external_bodies.json`)
+### 4.1 External bodies directory (`data/external_bodies.json`) — **implemented (municipal units only)**
+Implemented: `scripts/scrape_external_bodies.py` → 34 entries from BIP UMB "Jednostki Organizacyjne" (budget
+units `artykul/169/86`, budget establishments `162/87`, majority-owned companies `160/88`, cultural institutions
+`161/85`); fields `id, name, kind, address, phone, email, website, bip, source_url`; board members' names are
+skipped. Schools left out. Team decision: **no state bodies in MVP v0** (not on the city BIP) →
+`competent_body_id = None` and the letter shows the addressee as a placeholder. Loaded by
+`ai_service.routing.ExternalBodyDirectory`. Original design below for reference.
 - Fields: `id` (slug), `name`, `kind` (`municipal_unit` | `municipal_company` | `state_body` | `other`),
   `scope` (what it handles, used by the LLM), `address`, `email`, `phone`, `url`.
 - Content (~30–50 entries): Bydgoszcz municipal organizational units and companies from BIP (find the BIP UMB
@@ -184,7 +190,13 @@ art. 4 ust. 3 … winien się zwrócić do …" + contact data.
   Contact data comes **only** from this file, never from the LLM.
 - Loaded by `ai_service/routing/directory.py` (`ExternalBodyDirectory`, like `DepartmentDirectory`).
 
-### 4.2 Routing extension
+### 4.2 Routing extension — **implemented per question**
+Implemented as `QuestionRouting.external_body` (per question, only when `departments` is empty; validated;
+retry on unknown ids), `RoutingResult.competent_body()` (most frequent one), contract
+`RequestQuestion.external_body_id` and `Triage.competent_body_id`; prompt rule: prefer a City Hall unit if it
+holds/obtains the data. Gemini check: trams → ZDMiKP, water prices → MWiK, MOPS benefits → MOPS (mixed request
+split per question), police → none, 293 still WZK (correct); samples 15/17 still routed to City Hall units
+(not inferable from the request text). Original design below.
 `RoutingResult` gets request-level fields (same single LLM call):
 
 ```python

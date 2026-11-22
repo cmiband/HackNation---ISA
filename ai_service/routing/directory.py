@@ -42,3 +42,46 @@ class DepartmentDirectory:
                 block += "\nRejestry: " + "; ".join(d.registers)
             blocks.append(block)
         return "\n\n".join(blocks)
+
+
+EXTERNAL_BODIES_PATH = Path(__file__).resolve().parents[2] / "data" / "external_bodies.json"
+_KIND_LABELS = {
+    "budget_unit": "jednostka budżetowa",
+    "budget_establishment": "zakład budżetowy",
+    "company": "spółka miejska",
+    "culture": "instytucja kultury",
+}
+
+
+class ExternalBody(BaseModel):
+    """Municipal unit / company outside the City Hall departments (data/external_bodies.json, from BIP)."""
+
+    id: str
+    name: str
+    kind: str
+    address: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    bip: str | None = None
+    source_url: str | None = None
+
+
+class ExternalBodyDirectory:
+    def __init__(self, bodies: list[ExternalBody]) -> None:
+        self.bodies = bodies
+
+    @classmethod
+    def load(cls, path: str | Path = EXTERNAL_BODIES_PATH) -> "ExternalBodyDirectory":
+        path = Path(path)
+        if not path.exists():
+            return cls([])
+        return cls([ExternalBody.model_validate(item) for item in json.loads(path.read_text(encoding="utf-8"))])
+
+    @cached_property
+    def by_id(self) -> dict[str, ExternalBody]:
+        return {b.id: b for b in self.bodies}
+
+    def describe(self) -> str:
+        """Compact text listing for the LLM prompt."""
+        return "\n".join(f"[{b.id}] {b.name} ({_KIND_LABELS.get(b.kind, b.kind)})" for b in self.bodies)

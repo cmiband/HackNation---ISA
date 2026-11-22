@@ -2,7 +2,7 @@ from pydantic_ai import models
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from ai_service.routing import Department, DepartmentDirectory, DepartmentRouter
+from ai_service.routing import Department, DepartmentDirectory, DepartmentRouter, ExternalBody, ExternalBodyDirectory
 
 models.ALLOW_MODEL_REQUESTS = False
 
@@ -66,3 +66,41 @@ def test_real_directory_loads_with_unique_codes():
     codes = [d.code for d in directory.departments]
     assert len(codes) >= 20 and len(codes) == len(set(codes))
     assert all(d.responsibilities for d in directory.departments)
+
+
+BODIES = ExternalBodyDirectory(
+    [ExternalBody(id="zdmikp", name="Zarząd Dróg Miejskich i Komunikacji Publicznej", kind="budget_unit")]
+)
+
+
+def test_external_body_when_no_department_and_bodies_in_prompt():
+    model, calls = _model(
+        {
+            "routes": [
+                {"question_index": 0, "departments": ["WE"], "external_body": "zdmikp"},  # ignored: has a department
+                {"question_index": 1, "departments": [], "external_body": "zdmikp"},
+            ]
+        }
+    )
+    result = DepartmentRouter(model, DIRECTORY, BODIES).route(QUESTIONS)
+    assert [(q.departments, q.external_body) for q in result.questions] == [(["WE"], None), ([], "zdmikp")]
+    assert result.competent_body() == "zdmikp"
+    assert "[zdmikp] Zarząd Dróg Miejskich i Komunikacji Publicznej (jednostka budżetowa)" in calls[0]
+
+
+def test_unknown_external_body_triggers_retry():
+    model, calls = _model(
+        {"routes": [{"question_index": 0, "departments": [], "external_body": "policja"},
+                    {"question_index": 1, "departments": ["WGO"]}]},
+        {"routes": [{"question_index": 0, "departments": [], "external_body": None},
+                    {"question_index": 1, "departments": ["WGO"]}]},
+    )
+    result = DepartmentRouter(model, DIRECTORY, BODIES).route(QUESTIONS)
+    assert len(calls) == 2 and result.questions[0].external_body is None and result.competent_body() is None
+
+
+def test_committed_external_bodies_load():
+    bodies = ExternalBodyDirectory.load()
+    assert len(bodies.bodies) >= 30
+    zdmikp = next(b for b in bodies.bodies if b.name.startswith("Zarząd Dróg Miejskich"))
+    assert zdmikp.email == "zarzad@zdmikp.bydgoszcz.pl" and "Toruńska 174A" in zdmikp.address

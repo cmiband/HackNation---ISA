@@ -225,3 +225,19 @@ def test_similar_but_not_duplicate_case_does_not_block_out_of_scope(archive):
     result = svc.analyze_request(AnalyzeInput(case_id=9, text="x"))
     assert [c.case_id for c in result.similar_cases] == [1]
     assert result.triage.kind == TriageKind.OUT_OF_SCOPE
+
+
+def test_out_of_scope_carries_the_competent_body(archive):
+    from ai_service.routing import ExternalBody, ExternalBodyDirectory
+
+    svc = service(["Rozkład jazdy tramwaj linii 2."], codes=[], store=archive)
+
+    def fn(messages, info):
+        routes = [{"question_index": 0, "departments": [], "external_body": "zdmikp"}]
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"routes": routes})])
+
+    bodies = ExternalBodyDirectory([ExternalBody(id="zdmikp", name="ZDMiKP", kind="budget_unit")])
+    svc.router = DepartmentRouter(FunctionModel(fn), DIRECTORY, bodies)
+    result = svc.analyze_request(AnalyzeInput(case_id=11, text="tram"))
+    assert result.triage.kind == TriageKind.OUT_OF_SCOPE and result.triage.competent_body_id == "zdmikp"
+    assert result.questions[0].external_body_id == "zdmikp" and "ZDMiKP" in result.triage.reason
