@@ -75,7 +75,7 @@ full pipeline. Nothing is ever sent.
    Presidio and `pl_core_news_md` load (image ≈ 3.4 GB).
 2. `uv run ruff check --fix .` fixed the 6 unused/duplicate imports in `app/ui/main.py`.
 3. Everyone after the merge: `git pull && uv sync` (downloads torch CPU, a few hundred MB).
-4. Still open (part of §7.3): `seed_qdrant_local.py` case ids ≠ SQLite `Case.Id`.
+4. Done in §7.3: the app's archive is indexed under SQLite `Case.Id` by `scripts/seed_all.py`.
 
 ---
 
@@ -122,11 +122,23 @@ class AdaptedReply(BaseModel):
 ### 3.3 Calibration (`scripts/calibrate_similarity.py`, no LLM)
 Uses the cached questions of the seed cases (§7): prints the cosine `coverage` matrix between all seed cases.
 The known pairs (307↔599, 293↔543) must be ≥ `T_DUP`; unrelated pairs set the noise floor for `T_LOW` (§4).
-Thresholds go to `.env` (`SIMILARITY_DUPLICATE=0.90`, `SIMILARITY_LOW=0.86`, `SIMILARITY_FLOOR=0.75`) with
+Thresholds go to `.env` (initially `SIMILARITY_DUPLICATE=0.90`, `SIMILARITY_LOW=0.86`, `SIMILARITY_FLOOR=0.75`) with
 defaults in code. First calibration on the calendar topics of the samples (mmlw-roberta-base, no LLM):
 duplicates 307↔599 0.92, 293↔543 0.99, paraphrase 0.95; unrelated requests 0.76–0.87; an off-topic request
 max 0.81; out-of-scope 15/17 max 0.82/0.85. Real check: request 599 vs archived 307 questions → coverage
-0.93 → `DUPLICATE`. Re-check on the real extracted questions once the seed set exists.
+0.93 → `DUPLICATE`.
+
+**Re-calibrated on the seeded archive (real LLM-extracted questions) + 5 test requests → defaults now
+`SIMILARITY_DUPLICATE=0.92`, `SIMILARITY_LOW=0.91`:**
+- duplicates: 293↔543 coverage 0.985, 599↔307 0.933, a reworded 18 ↔ 18 0.923;
+- unrelated: up to 0.885 inside the archive, 0.899–0.903 between unrelated test requests ("ulica w
+  Bydgoszczy" context) — so 0.86/0.89 listed noise as similar and blocked out-of-scope.
+- `OUT_OF_SCOPE` rule simplified: no unit for any question **and no duplicate** (the "similar" threshold is
+  too close to noise to be a condition).
+- Results: 599 → DUPLICATE 307 ✓; reworded 18 → DUPLICATE 18 ✓; police data → OUT_OF_SCOPE ✓; snow clearing
+  → STANDARD (WGK) ✓; voivodeship conservator decisions → STANDARD (BKZ) ✗ (router prefers a City Hall unit;
+  archive cases 15/17 were routed to WGK/BKZ and WZP/WIM the same way) → needs §4.1/§4.2.
+- Re-check after changing the model, prompts or archive: `scripts/calibrate_similarity.py` (no LLM).
 Note: mmlw cosine for unrelated Polish sentences is usually well above 0 — "near zero" means "below the
 calibrated noise floor".
 
@@ -259,38 +271,20 @@ Per uploaded request: OCR (scans only) + **one analysis call** + routing (not on
 
 ## 7. Demo data and seeding (P0, Subteam B + A)
 
-### 7.1 Committed seed set (`data/seed/`)
-- The organizers' anonymized sample requests/replies (11 cases from `.local/data/Przykładowe wnioski i
-  odpowiedzi`), committed as agreed. No other `.local/` content.
-- `data/seed/cases.json` — per case: `document_number`, `applicant`, `topic`, `received`, `deadline`,
-  `response_date`, `status`, `assignee` initials, file names. Values from the calendar template
-  (`WNIOSKI O UDOSTĘPNIANIE INFORMACJI PUBLICZNEJ.xlsx`).
-- `data/seed/extracted.json` — cached LLM output per case (questions, summary, subject) generated **once**
-  with the developer's approval (≈ 11–22 calls); seeding and Docker start need no LLM.
-- `data/seed/department_replies/` — 1–2 fictional department replies for the standard-path demo.
+### 7.1–7.3 Implemented — archive seed (`scripts/seed_all.py`, see README "Archive seed")
+Team decision: all samples are **archived** cases (the jury uploads its own test requests; no open demo cases).
+- `data/seed/archive/{applications,responses}`: the 9 request/reply pairs (≈ 44 MB). Left out: 599 (no reply —
+  kept as a test upload, should be DUPLICATE of 307) and 543's extension letter (`Kwerenda`, the loader would
+  take it as the reply).
+- Dates/initials: Subteam A's archive loader as is (sample dates are examples anyway).
+- `data/seed/analysis.json`: cached `analyze_request` output per application file (questions with
+  departments, summary, subject, applicant, date) — generated once with Gemini, committed; startup makes no
+  LLM calls. Missing entries are analyzed and added; `--refresh` re-analyzes.
+- Each start: copy files → `init_db()` / loader → index archive under `Case.Id` → fill empty topics → delete
+  Qdrant cases not in SQLite. Called from `app.bootstrap` (failure does not block the UI).
+- `seed_qdrant_local.py` (own case ids) must not be used on the app's collection.
 
-### 7.2 Split archive / active cases (calendar shows all 11 — jury: "10 test submissions")
-- **Archive** (`Response_Sent`, real dates, reply indexed): 293/2025, 307/2025, 15/2026, 16/2026, 18/2026,
-  590/2026.
-- **Active** (dates **relative to today** at seed time, so highlighting always works):
-  599/2026 — due today, fast path 1 (↔ 307); 543/2026 — `Query` (extended deadline, kwerenda letter exists;
-  ↔ 293); 17/2026 — due tomorrow, fast path 2 (→ ZDMiKP); 509/2026 — overdue, `Request_Sent`
-  (clarification); one more `New`.
-- If the jury uploads one of these files again, it finds its own seed case as a duplicate — acceptable and
-  shows the feature.
-
-### 7.3 `scripts/seed_all.py` (replaces the stub; run by `app.bootstrap`)
-1. `init_db()` (tables + departments).
-2. SQLite empty → copy seed files to `storage/files/{applications,responses}` and create cases from
-   `cases.json` (one transaction per case, `CaseRepository`), relative dates for active cases.
-3. Qdrant collection empty **or** point count ≠ cases with questions → `store.reset()` + index every case with
-   **`case_id = Case.Id`** from `extracted.json` (the Qdrant volume can be reset independently of `storage/`).
-4. `--if-empty` idempotent; `scripts/reindex.py` = step 3 forced. `seed_qdrant_local.py` stays a dev tool but
-   must not be used for the app's collection (wrong ids).
-- Archive loader (`app/services/archive_loader.py`) is folded into this (or reads `cases.json`) so dates,
-  topics and applicants are real instead of "one month ago".
-
-### 7.4 Bake the embedding model (P0)
+### 7.4 Bake the embedding model — implemented (Dockerfile `ARG EMBEDDING_MODEL`, `HF_HUB_OFFLINE=1`)
 `scripts/download_models.py` downloads `EMBEDDING_MODEL` with sentence-transformers into the image's HF cache;
 runtime sets `HF_HUB_OFFLINE=1` (security baseline §8 of part 1). First search is then fast and needs no
 internet.

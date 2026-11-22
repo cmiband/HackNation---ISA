@@ -1,11 +1,18 @@
-"""Download and bake embedding model into Docker image.
+"""Download the embedding model at image build time, so the container needs no internet for it.
 
-In Step 1 (Hello World), this is a lightweight stub to ensure fast builds.
-Subteam B will populate this with sentence-transformers download logic in Step 2.
+The Dockerfile runs this, then sets HF_HUB_OFFLINE=1 for runtime. EMBEDDING_MODEL can be passed as a build arg.
 """
 
-def main():
-    print("[download_models] Step 1 stub: skipping full model download.")
+import os
+
+from sentence_transformers import SentenceTransformer
+
+
+def main() -> None:
+    name = os.getenv("EMBEDDING_MODEL", "").strip() or "sdadas/mmlw-roberta-base"
+    model = SentenceTransformer(name, device="cpu")
+    dim = model.get_embedding_dimension()
+    print(f"[download_models] {name}: {dim} dimensions, cached for offline use")
 
 
 if __name__ == "__main__":

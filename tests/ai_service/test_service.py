@@ -209,3 +209,19 @@ def test_every_question_gets_its_best_match():
     new = [f"uczniów nowe {i}" for i in range(4)]
     result = service(new, store=store).analyze_request(AnalyzeInput(case_id=2, text="new"))
     assert {m.question for m in result.similar_cases[0].matches} == set(new)
+
+
+def test_duplicate_wins_over_out_of_scope(archive):
+    result = service(["Liczba uczniów w szkołach."], codes=[], store=archive).analyze_request(
+        AnalyzeInput(case_id=8, text="same pupils request, router finds no unit")
+    )
+    assert result.triage.kind == TriageKind.DUPLICATE
+
+
+def test_similar_but_not_duplicate_case_does_not_block_out_of_scope(archive):
+    # "uczniowie" is similar to the archived pupils case (cosine ~0.98 < duplicate 0.99 here) but not the same.
+    svc = service(["Ile uczniowie mają przerw?"], codes=[], store=archive)
+    svc.triage_settings = TriageSettings(duplicate=0.99, low=0.8, floor=0.5)
+    result = svc.analyze_request(AnalyzeInput(case_id=9, text="x"))
+    assert [c.case_id for c in result.similar_cases] == [1]
+    assert result.triage.kind == TriageKind.OUT_OF_SCOPE

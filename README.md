@@ -129,8 +129,12 @@ status page. LLM, embedder or Qdrant failures never raise — the result is part
   listed only if one of its questions matches well (`SIMILARITY_LOW`); its `score` says how well it covers
   **all** questions of the request.
 - **Triage**: `DUPLICATE` if every question matches an earlier case at cosine ≥ `SIMILARITY_DUPLICATE`
-  (0.90); `OUT_OF_SCOPE` if the router found no unit for any question and nothing is similar. Thresholds:
-  `.env` (`SIMILARITY_*`), calibrated on the sample requests.
+  (0.92); otherwise `OUT_OF_SCOPE` if the router found no unit for any question. Thresholds: `.env`
+  (`SIMILARITY_*`). Calibrated on the sample archive + test requests: real duplicates 0.92–0.99, unrelated
+  Polish requests up to ~0.90 (this model's cosine is compressed), so the "similar" cut-off is 0.91.
+- Known limit: the router tends to pick some City Hall unit even when another body holds the data (e.g. the
+  voivodeship conservator → BKZ), so `OUT_OF_SCOPE` fires mainly for clearly external topics (police,
+  courts). Fix planned: external bodies directory (`docs/second_part_engineering_plan.md` §4).
 - 2 LLM calls per request (+1 OCR for scans). First call loads the embedding model (a few seconds).
 
 ### Question extraction (`ai_service/llm/`)
@@ -227,21 +231,41 @@ uv run --env-file .env python scripts/extract_questions.py "<path to request.pdf
 uv run --env-file .env python scripts/extract_questions.py --text-only "<path>"
 ```
 
-Sample requests are kept locally in `.local/data/` (gitignored, not in the repo) — get them from the
-team.
+The full organizer sample set is kept locally in `.local/data/` (gitignored) — get it from the team. The 9
+request/reply pairs of the archive are committed in `data/seed/archive/`; `Wniosek - BKS.IV.1431.599.2026`
+(no reply) is not in the archive and is a good test upload: it should be flagged `DUPLICATE` of 307/2025.
+
+### Archive seed (`scripts/seed_all.py`)
+
+The demo archive = the 9 sample request/reply pairs in `data/seed/archive/` (all `Response_Sent`). On every
+container start `app.bootstrap` runs `scripts/seed_all.py` (idempotent):
+
+1. copies the seed files into `storage/files/` (existing files are kept);
+2. `init_db()` + archive loader (Subteam A) create one case per pair in SQLite;
+3. indexes every archive case in Qdrant under its SQLite `Case.Id`, with the questions cached in
+   `data/seed/analysis.json` (LLM output, committed — **no LLM calls at startup**); fills empty topics;
+4. removes Qdrant entries of cases that are no longer in SQLite.
+
+Native runs: `uv run --env-file .env python scripts/seed_all.py` (Qdrant must be up). A new archive pair
+dropped into `storage/files/` is analyzed once with the LLM and added to the cache; `--refresh` re-analyzes all
+archive cases (e.g. after a prompt change) — commit the updated `analysis.json`.
 
 ## Running with Docker
 
 ```bash
 cp .env.example .env        # set LLM_MODEL / GEMINI_API_KEY
-docker compose up --build   # first build downloads models, takes several minutes
+docker compose up --build   # first build downloads torch + the embedding model (baked into the image)
 # open http://localhost:8501
 ```
 
 Services: `app` (Streamlit, http://localhost:8501) and `qdrant` (vector DB, dashboard at
 http://localhost:6333/dashboard). Data (SQLite DB, uploaded files) is stored in `./storage` on the host;
-the vector index lives in the Docker volume `qdrant_storage`. Reset to the initial demo state:
-`docker compose down -v`, delete everything in `storage/` except `.gitkeep`, then `docker compose up`.
+the vector index lives in the Docker volume `qdrant_storage`. The archive is seeded on start (see "Archive
+seed"); the embedding model is in the image and Hugging Face runs offline (`HF_HUB_OFFLINE=1`) — changing
+`EMBEDDING_MODEL` needs a rebuild (`docker compose build --build-arg EMBEDDING_MODEL=...`). Reset to the
+initial demo state: `docker compose down -v`, delete everything in `storage/` except `.gitkeep`, then
+`docker compose up`.
 
 Running natively instead of Docker: `docker compose up -d qdrant` (vector DB only), then
+`uv run --env-file .env python scripts/seed_all.py` (first time / after a reset) and
 `uv run --env-file .env streamlit run app/ui/main.py` (uses `./storage` and `QDRANT_URL=http://localhost:6333`).
