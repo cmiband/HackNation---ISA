@@ -63,22 +63,24 @@ To let both subteams work in parallel, **implement the `contracts/` package firs
 
 ### 4.1 Interface (`contracts/protocol.py`)
 
-`AIServiceProtocol` — a `typing.Protocol` (`@runtime_checkable`) with Part 1 methods:
+`AIServiceProtocol` — a `typing.Protocol` (`@runtime_checkable`). **Contract v2 (implemented):** one united call
+for summary, questions, departments, similar cases and triage, made after the official confirmed the case:
 
 | Method | Input | Output |
 |--------|-------|--------|
-| `analyze_request` | `AnalyzeInput {text, received_date?}` | `AnalyzeResult {summary, extracted_metadata, similar_cases[], suggested_departments[]}` |
-| `ingest` | `IngestInput {kind, text, metadata}` | `IngestResult {chunks_indexed}` |
+| `analyze_request` | `AnalyzeInput {case_id, filename + data \| text}` | `AnalyzeResult {case_id, text, parse_method, summary, subject, applicant, letter_date, questions[{text, departments}], suggested_departments, similar_cases[], triage, warnings}` |
+| `delete_case` | `case_id` | — |
 | `health` | — | `Health {status, vector_db_count, departments_loaded, llm_provider}` |
 
-- `similar_cases[]`: `{case_id, score (0.0–1.0), year, summary, departments}`
+- `similar_cases[]`: `{case_id (= Case.Id, int), score (0.0–1.0, coverage of all questions), matches[{question, archived_question, score}]}` — numbers, topics and dates come from SQLite.
+- `triage`: `{kind: Standard | Duplicate | Out_Of_Scope (contracts.enums.TriageKind), duplicate_case_ids, competent_body_id, reason}` — a proposal; the official decides.
 - `suggested_departments[]`: department **codes only** (e.g. `"WE"`), most relevant first (team decision). Subteam A looks up names/e-mails in `data/departments.json` (or the `Department` table seeded from it).
-- `kind`: `ARCHIVE_CASE | LAW | ORDER`
-- Part 2 methods are added when Part 2 is designed. Anonymization is **not** part of this protocol (see §6.7).
+- An unreadable file raises `contracts.protocol.DocumentReadError`; other failures give a partial result with `warnings`.
+- `ingest` was removed (archive cases are indexed by `analyze_request` too). Drafting methods are added with Part 2 (`second_part_engineering_plan.md` §6). Anonymization is **not** part of this protocol (see §6.7).
 
 ### 4.2 Usage rules
 - Pydantic models live in `contracts/models.py`, enums in `contracts/enums.py`.
-- `ai_service/factory.py` exposes `get_ai_service(settings)` → `AIService` or `MockAIService` (`AI_MOCK=1`).
+- `ai_service/factory.py` exposes `get_ai_service(mock=None)` → `AIService` or `MockAIService` (`mock=True` or env `AI_MOCK=1`).
 - `MockAIService` returns canned data so Subteam A can build the UI before Subteam B is ready.
 - `app/` imports only `contracts` and `ai_service.factory` — never `ai_service` internals.
 - In Streamlit, create the service once with `st.cache_resource` (otherwise models reload on every rerun). The instance is shared across sessions → it must be thread-safe (no per-request state on `self`).
@@ -262,6 +264,7 @@ columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline`, `Days to deadline`,
   - `QuestionEmbedder` produces `QuestionVectors(question, dense, sparse)` directly from each extracted question string: `dense` is encoded with the local SentenceTransformer (`sdadas/mmlw-roberta-base`), and `sparse` is encoded with `SparseBm25Encoder` (BM25 TF with 31-bit CRC32 token IDs, matching Qdrant's `Modifier.IDF`).
 - **Vector store — implemented** (`ai_service/vector_store/`): **Qdrant** in a separate Compose service; details in `project_structure_and_docker.md` §5.
   - `QuestionStore.from_env()`; `upsert_case(case_id, [QuestionVectors(question, dense, sparse, query_id, file_id)], file_id=...)` (replaces the case's questions), `delete_case(case_id)`, `search_similar_cases(queries, limit, exclude_case_id)` → `[SimilarCaseHit{case_id, score, matches[]}]`, `count_points()`, `reset()`, `healthy()`.
+  - Every match also carries `dense_score` (exact cosine, from the stored vectors) and every case `question_scores` (best cosine per query question) — used by `AIService` for thresholds; the RRF score is for ranking only.
   - Payload stores `case_id` (= SQLite `Case.Id`), `query_id` (1-based question index inside the case), `question`, and optional `file_id`; search over the whole collection.
   - Callers pass vectors (plain dataclasses, no `qdrant_client` import needed). Ingestion/seeding from SQLite: other teammate.
 
