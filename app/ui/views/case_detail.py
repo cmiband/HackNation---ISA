@@ -20,16 +20,19 @@ from app.config import settings
 from app.db.engine import engine
 from app.db.repository import (
     CaseRepository,
+    DepartmentRepository,
     DepartmentRequestRepository,
     FileDataRepository,
 )
 from app.services.deadlines import query_deadline
 from app.services.registry import (
+    add_department_request,
     advance_case_status,
     complete_department_request,
     delete_department_request,
     mark_case_query,
     mark_department_request_sent,
+    numbered_questions,
     request_case_analysis,
 )
 from app.ui.i18n import request_status_label, status_label
@@ -228,6 +231,29 @@ def render_department_requests(case_id: int, case_status: CaseStatus) -> None:
         st.caption("Brak zapytań do jednostek.")
     else:
         _render_request_rows(rows, case_status)
+    if case_status in (CaseStatus.PROCESSED, CaseStatus.REQUEST_SENT, CaseStatus.QUERY):
+        render_add_request_form(case_id)
+
+
+def render_add_request_form(case_id: int) -> None:
+    """Manual request to a unit chosen by the official (the analysis may suggest none or a wrong one)."""
+    with Session(engine) as db:
+        departments = DepartmentRepository(db).get_all()
+        case = CaseRepository(db).get_case_by_id(case_id)
+        default_text = numbered_questions(case) if case is not None else ""
+    with st.expander("Dodaj zapytanie do jednostki"):
+        with st.form(f"add_request_{case_id}", border=False):
+            options = {d.id: f"{d.code} – {d.name}" for d in departments}
+            department_id = st.selectbox("Jednostka", list(options), format_func=options.get)
+            text = st.text_area("Pytania do jednostki", value=default_text, height=120)
+            if st.form_submit_button("Dodaj zapytanie"):
+                try:
+                    add_department_request(case_id, department_id, text)
+                except (LookupError, ValueError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.toast("Zapytanie dodane.", icon="✅")
+                    st.rerun(scope="fragment")
 
 
 

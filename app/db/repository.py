@@ -146,6 +146,9 @@ class DepartmentRepository:
     def get_by_id(self, department_id: int) -> Department | None:
         return self.session.get(Department, department_id)
 
+    def get_all(self) -> list[Department]:
+        return list(self.session.exec(select(Department).order_by(Department.code)).all())
+
     def get_by_codes(self, codes: Sequence[str]) -> dict[str, Department]:
         """Return departments with the given codes, keyed by code (unknown codes are left out)."""
         if not codes:

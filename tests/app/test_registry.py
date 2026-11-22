@@ -292,3 +292,21 @@ def test_update_case_metadata_validates_and_writes_history(session):
     assert case.document_number == "BKS.IV.1431.6.2026" and case.topic == "Temat"
     history = session.exec(select(CaseHistory).where(CaseHistory.case_id == case_id)).all()
     assert history[-1].document_number == "BKS.IV.1431.6.2026"
+
+
+def test_add_department_request_manually(session):
+    from app.services.registry import add_department_request, numbered_questions
+
+    case_id = _add_case(session, CaseStatus.PROCESSED)
+    ids = _add_departments(session, "WE")
+    with pytest.raises(ValueError):
+        add_department_request(case_id, ids["WE"], "  ", session=session)
+    with pytest.raises(LookupError):
+        add_department_request(case_id, 999, "1. Q", session=session)
+    request = add_department_request(case_id, ids["WE"], " 1. Pytanie ", session=session)
+    assert request.request_status == RequestStatus.SUGGESTED and request.request_text == "1. Pytanie"
+    case = CaseRepository(session).get_case_by_id(case_id)
+    assert numbered_questions(case) == ""
+    case.analysis_json = AnalyzeResult(case_id=case_id, text="t", questions=[RequestQuestion(text="A?"),
+                                                                             RequestQuestion(text="B?")]).model_dump_json()
+    assert numbered_questions(case) == "1. A?\n2. B?"
