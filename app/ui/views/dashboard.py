@@ -142,15 +142,23 @@ def load_dashboard_frame(
     return load_dashboard_data(session=session, today=today)[1]
 
 
+def case_years(cases: Sequence[Case]) -> list[int]:
+    """Years of receipt present in the registry, newest first."""
+    return sorted({case.created_date.year for case in cases}, reverse=True)
+
+
 def load_dashboard_data(
     *,
     session: Session | None = None,
     today: date | None = None,
+    year: int | None = None,
 ) -> tuple[list[int], pd.DataFrame]:
-    """Return case ids (row order) and the dashboard DataFrame (oldest → newest)."""
+    """Return case ids (row order) and the dashboard DataFrame (oldest → newest), optionally one year only."""
     with ExitStack() as stack:
         db = session if session is not None else stack.enter_context(Session(engine))
         cases = CaseRepository(db).get_all_cases()
+        if year is not None:
+            cases = [case for case in cases if case.created_date.year == year]
         case_ids = [case.id for case in cases if case.id is not None]
         return case_ids, build_dashboard_frame(cases, today=today)
 
@@ -169,13 +177,27 @@ def _format_cell(value: object) -> str:
 
 def render() -> None:
     st.subheader("📊 Case Dashboard")
-    case_ids, df = load_dashboard_data()
-    if df.empty:
+    with Session(engine) as db:
+        years = case_years(CaseRepository(db).get_all_cases())
+    if not years:
         st.caption("No cases registered yet — upload applications in the Upload Request tab.")
         return
 
+    ctrl_left, ctrl_year, ctrl_right = st.columns([4, 1, 1.2], vertical_alignment="center")
+    year_options: list[int | None] = [None, *years]
+    year = ctrl_year.selectbox(
+        "Rok",
+        year_options,
+        index=1 if date.today().year in years else 0,
+        format_func=lambda y: "Wszystkie lata" if y is None else str(y),
+        key="dashboard_year",
+    )
+    case_ids, df = load_dashboard_data(year=year)
+    if df.empty:
+        ctrl_left.caption("No cases in the selected year.")
+        return
+
     total_cases = len(df)
-    ctrl_left, ctrl_right = st.columns([4, 1.2], vertical_alignment="center")
     show_all = ctrl_right.toggle("Show all cases", value=False, key="dashboard_show_all")
 
     visible_ids, visible_df = select_dashboard_rows(case_ids, df, show_all=show_all)
