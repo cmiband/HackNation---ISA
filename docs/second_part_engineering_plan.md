@@ -283,20 +283,22 @@ SQLite id), no separate indexing call, no progress callback. Usage and fields: R
 - `factory.get_ai_service(mock=None)`: `AI_MOCK=1` → `MockAIService` (canned, no models); `.env.example` now
   has `AI_MOCK=0`.
 
-### 6.2 Implemented — `draft_response` (branch `feat/external-bodies`)
-`draft_response(DraftInput{analysis: AnalyzeResult, kind?, case_number?, letter_date?, department_replies:
-[DocumentInput{filename+data | text, source}], archived_reply?: DocumentInput, competent_body_id?})` →
-`DraftResult{kind, letter_text, body, values_to_verify, unanswered_questions, period_differs, notes, warnings}`.
-`ai_service/drafting/letter.py` (BKS letterhead, Polish date, neutral salutation — team decision, placeholders,
-redirect template with `UDIP_CITATION = "t.j. Dz. U. z 2022 r. poz. 902 z późn. zm."`), `drafters.py`
-(`ArchiveReplyAdapter`, `DepartmentReplyDrafter`; validators: values must be exact substrings, unanswered in
-range), prompts `draft_from_archive.md`, `draft_from_departments.md`. The app must keep the `AnalyzeResult` of a
-case (e.g. a JSON column) to call it. Gemini check: 543 ← reply of 293 (period_differs, all 2024 values
-flagged, question 5 marked missing), 599 ← reply of 307 (attachment-only reply → both questions to fill in),
-18 from a fictional WGO reply (facts only, internal remarks and the clerk's name dropped), tram → ZDMiKP
-redirect. Draft design below (§6.2 original) for reference.
+### 6.2 Implemented — `draft_response` (team-defined inputs)
+Inputs decided by the team: `DraftInput{questions: list[str], documents: list[DocumentInput], archived_reply?:
+DocumentInput}`. The documents are any number of unit replies, not tied to questions, and `DocumentInput` has
+no `source`. The archived reply is given when the similarity was high. Output: **body only**,
+`DraftResult{body, values_to_verify, unanswered_questions, period_differs, notes, warnings}`. Documents win:
+facts come from them, and the archived reply serves as the template plus facts for uncovered questions
+(flagged). One `ReplyDrafter` (prompt `draft_reply.md`, validators: exact values, question numbers in
+range).
+**Out-of-scope** is decided right after the analysis (before any department is asked): `AnalyzeResult.
+redirect_draft` carries the fixed redirect body (`letter.py::redirect_body`, contacts from
+`data/external_bodies.json`, placeholder if no body). Gemini check: 543 with a WZK document (Q1–3) + reply of
+293 → facts from the document, Q4–5 marked missing (the 2024 plan in 293 is not the 2025 cost asked for); 18
+with an irrelevant + a WGO document → only WGO facts; 599 with the attachment-only reply of 307 → both answers
+missing, no fake attribution to a unit.
 
-### 6.2a Original draft of the drafting contract
+### 6.2a Superseded first draft of the drafting contract (for reference)
 
 | Method | Input → Output | Notes |
 |--------|----------------|-------|

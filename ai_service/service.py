@@ -25,10 +25,9 @@ import re
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date
 from threading import Lock
 
-from ai_service.drafting import ArchiveReplyAdapter, DepartmentReplyDrafter, Letter, placeholders, redirect_body
+from ai_service.drafting import ReplyDrafter, placeholders, redirect_body, template_body
 from ai_service.embeddings import QuestionEmbedder
 from ai_service.llm import RequestAnalysis, RequestAnalyzer
 from ai_service.llm.analysis import fallback_analysis
@@ -91,15 +90,13 @@ class AIService:
         store: QuestionStore | None = None,
         triage: TriageSettings | None = None,
         llm_provider: str = "none",
-        archive_adapter: ArchiveReplyAdapter | None = None,
-        department_drafter: DepartmentReplyDrafter | None = None,
+        drafter: ReplyDrafter | None = None,
     ) -> None:
         self.parser = parser
         self.analyzer = analyzer
         self.router = router
         self.embedder = embedder
-        self.archive_adapter = archive_adapter or ArchiveReplyAdapter(None)
-        self.department_drafter = department_drafter or DepartmentReplyDrafter(None)
+        self.drafter = drafter or ReplyDrafter(None)
         self.triage_settings = triage or TriageSettings()
         self.llm_provider = llm_provider
         self._store = store
@@ -116,8 +113,7 @@ class AIService:
             embedder=QuestionEmbedder.from_env(),
             triage=TriageSettings.from_env(),
             llm_provider=names[0] if names else "none",
-            archive_adapter=ArchiveReplyAdapter.from_env(),
-            department_drafter=DepartmentReplyDrafter.from_env(),
+            drafter=ReplyDrafter.from_env(),
         )
 
     # --- protocol ---------------------------------------------------------------------------------------
@@ -151,6 +147,7 @@ class AIService:
         similar, duplicates = self._similar_cases(hits, len(questions))
         routing = self._route(questions, warnings)
         triage = self._triage(routing, duplicates)
+        redirect = self._redirect_draft(analysis.subject, triage) if triage.kind == TriageKind.OUT_OF_SCOPE else None
         self._index(case_id, questions, vectors, input_data.filename, warnings)
 
         log.info("analyze_request case=%s questions=%d took %.1fs", case_id, len(questions), time.perf_counter() - started)
@@ -170,47 +167,37 @@ class AIService:
             similar_cases=similar,
             triage=triage,
             warnings=warnings,
+            redirect_draft=redirect,
         )
 
     def draft_response(self, input_data: DraftInput) -> DraftResult:
-        analysis = input_data.analysis
-        kind = input_data.kind or analysis.triage.kind
-        questions = [q.text for q in analysis.questions]
+        questions = [q.strip() for q in input_data.questions if q.strip()]
+        documents = [self._read_document(d) for d in input_data.documents]
+        archived = self._read_document(input_data.archived_reply) if input_data.archived_reply else None
         warnings: list[str] = []
-        values: list[str] = []
-        unanswered: list[int] = []
-        period_differs = False
-        notes = ""
-
-        if kind == TriageKind.OUT_OF_SCOPE:
-            body_id = input_data.competent_body_id or analysis.triage.competent_body_id
-            competent = self.router.bodies.by_id.get(body_id) if body_id else None
-            body = redirect_body(analysis.subject, competent)
-            notes = (
-                f"Pismo przekierowujące do: {competent.name} (dane kontaktowe z BIP)."
-                if competent
-                else "Uzupełnij nazwę i dane kontaktowe właściwego podmiotu (spoza listy jednostek miejskich)."
+        if not documents and not archived:
+            warnings.append("No documents and no archived reply: the body is a template to fill in.")
+            body = template_body(questions, [])
+            return DraftResult(
+                body=body,
+                values_to_verify=placeholders(body),
+                unanswered_questions=list(range(1, len(questions) + 1)),
+                warnings=warnings,
             )
-        elif kind == TriageKind.DUPLICATE:
-            body, values, period_differs, notes = self._draft_from_archive(input_data, questions, warnings)
-        else:
-            body, values, unanswered, notes = self._draft_from_departments(input_data, questions, warnings)
-
-        text = Letter(
-            case_number=input_data.case_number,
-            addressee=analysis.applicant,
-            body=body,
-            letter_date=input_data.letter_date or date.today(),
-        ).text()
-        to_verify = [v for v in dict.fromkeys(values) if v in text] + placeholders(text)
+        try:
+            out = self.drafter.draft(questions, documents, archived)
+        except Exception:
+            log.exception("reply drafting failed")
+            warnings.append("LLM unavailable: the documents are inserted as they are — edit the draft.")
+            body = template_body(questions, documents + ([archived] if archived else []))
+            return DraftResult(body=body, values_to_verify=placeholders(body), warnings=warnings)
+        values = [v for v in out.values_to_verify if v in out.body] + placeholders(out.body)
         return DraftResult(
-            kind=kind,
-            letter_text=text,
-            body=body,
-            values_to_verify=list(dict.fromkeys(to_verify)),
-            unanswered_questions=unanswered,
-            period_differs=period_differs,
-            notes=notes,
+            body=out.body,
+            values_to_verify=list(dict.fromkeys(values)),
+            unanswered_questions=sorted(set(out.unanswered)),
+            period_differs=out.period_differs,
+            notes=out.notes,
             warnings=warnings,
         )
 
@@ -259,44 +246,18 @@ class AIService:
         except DocumentParseError as exc:
             raise DocumentReadError(str(exc)) from exc
 
-    def _unit_name(self, source: str) -> str:
-        if source in self.router.directory.by_code:
-            return self.router.directory.by_code[source].name
-        if source in self.router.bodies.by_id:
-            return self.router.bodies.by_id[source].name
-        return source or "komórka merytoryczna"
-
-    def _draft_from_archive(
-        self, input_data: DraftInput, questions: list[str], warnings: list[str]
-    ) -> tuple[str, list[str], bool, str]:
-        intro = _intro(input_data.analysis.subject)
-        if input_data.archived_reply is None:
-            warnings.append("No archived reply given: the draft is a template to fill in.")
-            return intro + "[treść odpowiedzi z poprzedniej sprawy – do uzupełnienia]", [], False, ""
-        archived = self._read_document(input_data.archived_reply)
-        try:
-            out = self.archive_adapter.adapt(questions, input_data.analysis.subject, archived)
-            notes = out.notes if out.same_scope else (out.notes + " Poprzednia odpowiedź nie obejmuje wszystkich pytań.").strip()
-            return out.body, out.values_to_verify, out.period_differs, notes
-        except Exception:
-            log.exception("archive reply adaptation failed")
-            warnings.append("LLM unavailable: the archived reply is inserted as it is — adapt it manually.")
-            return intro + "[do dostosowania – treść poprzedniej odpowiedzi:]\n" + archived, [], False, ""
-
-    def _draft_from_departments(
-        self, input_data: DraftInput, questions: list[str], warnings: list[str]
-    ) -> tuple[str, list[str], list[int], str]:
-        replies = [(self._unit_name(d.source), self._read_document(d)) for d in input_data.department_replies]
-        if not replies:
-            warnings.append("No department replies given: the draft is a template to fill in.")
-            return _template_body(input_data.analysis.subject, questions, []), [], list(range(1, len(questions) + 1)), ""
-        try:
-            out = self.department_drafter.draft(questions, input_data.analysis.subject, replies)
-            return out.body, out.values_to_verify, sorted(set(out.unanswered)), out.notes
-        except Exception:
-            log.exception("department draft failed")
-            warnings.append("LLM unavailable: the department replies are inserted as they are — edit the draft.")
-            return _template_body(input_data.analysis.subject, questions, replies), [], [], ""
+    def _redirect_draft(self, subject: str, triage: Triage) -> DraftResult:
+        competent = self.router.bodies.by_id.get(triage.competent_body_id) if triage.competent_body_id else None
+        body = redirect_body(subject, competent)
+        return DraftResult(
+            body=body,
+            values_to_verify=placeholders(body),
+            notes=(
+                f"Pismo przekierowujące do: {competent.name} (dane kontaktowe z BIP)."
+                if competent
+                else "Uzupełnij nazwę i dane kontaktowe właściwego podmiotu (spoza listy jednostek miejskich)."
+            ),
+        )
 
     def _analyze(self, text: str, warnings: list[str]) -> RequestAnalysis:
         try:
@@ -399,16 +360,3 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     return re.sub(r"\n\s*\n+", "\n\n", text).strip()
 
-
-def _intro(subject: str) -> str:
-    return f"w odpowiedzi na wniosek o udostępnienie informacji publicznej w zakresie {subject.strip() or '[zakres wniosku]'}, "
-
-
-def _template_body(subject: str, questions: Sequence[str], replies: Sequence[tuple[str, str]]) -> str:
-    """Deterministic body without an LLM: one 'Ad n' per question + the department texts to edit."""
-    parts = [_intro(subject) + "uprzejmie informuję, co następuje."]
-    for i, q in enumerate(questions, start=1):
-        parts.append(f"Ad {i}\n[odpowiedź na pytanie: {q}]" if len(questions) > 1 else f"[odpowiedź na pytanie: {q}]")
-    for name, text in replies:
-        parts.append(f"[do zredagowania – informacja przekazana przez: {name}]\n{text}")
-    return "\n".join(parts)

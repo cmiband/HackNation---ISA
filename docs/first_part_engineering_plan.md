@@ -68,8 +68,8 @@ for summary, questions, departments, similar cases and triage, made after the of
 
 | Method | Input | Output |
 |--------|-------|--------|
-| `analyze_request` | `AnalyzeInput {case_id, filename + data \| text}` | `AnalyzeResult {case_id, text, parse_method, summary, subject, applicant, letter_date, questions[{text, departments}], suggested_departments, similar_cases[], triage, warnings}` |
-| `draft_response` | `DraftInput {analysis, kind?, case_number?, letter_date?, department_replies[], archived_reply?, competent_body_id?}` | `DraftResult {kind, letter_text, body, values_to_verify, unanswered_questions, period_differs, notes, warnings}` |
+| `analyze_request` | `AnalyzeInput {case_id, filename + data \| text}` | `AnalyzeResult {case_id, text, parse_method, summary, subject, applicant, letter_date, questions[{text, departments, external_body_id}], suggested_departments, similar_cases[], triage, warnings, redirect_draft}` |
+| `draft_response` | `DraftInput {questions, documents[DocumentInput], archived_reply?}` | `DraftResult {body, values_to_verify, unanswered_questions, period_differs, notes, warnings}` (body only) |
 | `delete_case` | `case_id` | — |
 | `health` | — | `Health {status, vector_db_count, departments_loaded, llm_provider}` |
 

@@ -139,34 +139,35 @@ status page. LLM, embedder or Qdrant failures never raise — the result is part
 
 ### Draft reply (`service.draft_response`, `ai_service/drafting/`)
 
-After the official chose the path (accepted the proposed triage or continued the standard pipeline) and, for
-the standard path, uploaded the department replies:
+Returns only the **body** of the reply letter (it follows the salutation; letterhead, date, case number,
+addressee and closing are added by the frontend / exporter):
 
 ```python
 from contracts.models import DocumentInput, DraftInput
 
 draft = service.draft_response(DraftInput(
-    analysis=result,                     # the AnalyzeResult of this case — store it with the case (JSON)
-    kind=None,                           # None = result.triage.kind; or the path the official chose
-    case_number=case.document_number,    # placeholder "[numer sprawy]" if None
-    department_replies=[DocumentInput(filename=f.name, data=f.read(), source="WE")],    # STANDARD
-    archived_reply=DocumentInput(filename=reply.name, data=reply_bytes),                 # DUPLICATE
+    questions=[q.text for q in result.questions],              # the questions of the case
+    documents=[DocumentInput(filename=f.name, data=f.read())],  # replies from units: any number, any order
+    archived_reply=DocumentInput(filename=..., data=...),        # optional: reply of a highly similar case
 ))
-draft.letter_text          # whole letter: BKS letterhead, date, number, addressee, "Szanowni Państwo,", body, closing
-draft.values_to_verify     # exact substrings to highlight: numbers/dates taken over + "[…]" placeholders
-draft.unanswered_questions # 1-based numbers of result.questions without an answer (STANDARD)
+draft.body                  # "w odpowiedzi na wniosek o udostępnienie informacji publicznej w zakresie …"
+draft.values_to_verify      # exact substrings to highlight: numbers/dates taken over + "[…]" placeholders
+draft.unanswered_questions  # 1-based numbers of `questions` nothing answers
 draft.period_differs, draft.notes, draft.warnings
 ```
 
-- `STANDARD`: one LLM call writes the body only from the department replies ("Ad 1 / Ad 2", units named,
-  internal remarks and private persons' data dropped, missing answers marked).
-- `DUPLICATE`: one LLM call adapts the archived reply (the reply file of a case from
-  `triage.duplicate_case_ids` that has one) to the new request; `period_differs` + all taken-over values in
-  `values_to_verify` when the period differs.
-- `OUT_OF_SCOPE`: no LLM — redirect letter (art. 4 ust. 3 UDIP, as in samples 15/17) with the contact data of
-  `triage.competent_body_id` from `data/external_bodies.json`, or a placeholder for the official.
-- Neutral salutation (no Pan/Pani). Without an LLM: a template with the inputs to edit, plus `warnings`.
-  Unreadable files raise `DocumentReadError`. Anonymization runs on `letter_text` afterwards (separate module).
+- One LLM call. Documents are matched to questions by content and the unit names are taken from the
+  documents. Facts come from the documents first. The archived reply is the template for structure and wording,
+  and its facts are used only for questions no document answers. Those values are flagged, and
+  `period_differs` is set if they refer to another period.
+- `DocumentInput` = a file (`filename` + `data`, PDF/DOCX, OCR for scans) or `text`.
+- Neutral form (no Pan/Pani), private persons' data and internal remarks of the units dropped, "Ad 1 / Ad 2"
+  for several questions, missing answers → `[brak odpowiedzi komórki merytorycznej]`.
+- No documents and no archived reply, or no LLM: a template body to fill in + `warnings`. Unreadable files raise
+  `DocumentReadError`. Anonymization runs on the edited letter afterwards (separate module).
+- **Redirect letters** ("outside UMB competence") are not drafted here: `analyze_request` already returns
+  `result.redirect_draft` (same `DraftResult` shape) when `triage.kind == OUT_OF_SCOPE` — fixed template
+  (art. 4 ust. 3 UDIP, as in samples 15/17) with the contact data of `triage.competent_body_id`, no LLM.
 
 ### Question extraction (`ai_service/llm/`)
 

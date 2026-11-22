@@ -18,12 +18,12 @@ class AIServiceProtocol(Protocol):
         ...
 
     def draft_response(self, input_data: DraftInput) -> DraftResult:
-        """Draft the reply letter for the path of the case (STANDARD / DUPLICATE / OUT_OF_SCOPE).
+        """Draft the reply letter BODY from the department documents and/or the archived reply of a similar case.
 
-        STANDARD: from the department replies; DUPLICATE: the archived reply adapted to this request;
-        OUT_OF_SCOPE: redirect letter (art. 4 ust. 3 UDIP) with the competent body's contact data. The draft is
-        a proposal: `values_to_verify` and `unanswered_questions` must be checked by the official. Raises
-        DocumentReadError if a given file cannot be read; other failures give a template draft + `warnings`.
+        Documents: facts (any number, matched to questions by content). Archived reply: template for structure
+        and wording; its facts are used only for questions no document answers (flagged in `values_to_verify`).
+        The draft is a proposal to review. Raises DocumentReadError if a file cannot be read; other failures
+        give a template body + `warnings`. (Redirect letters for OUT_OF_SCOPE come with `analyze_request`.)
         """
         ...
 

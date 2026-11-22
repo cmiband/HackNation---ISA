@@ -112,8 +112,8 @@ HackNation---ISA/
 │   │   ├── directory.py      # DepartmentDirectory, ExternalBodyDirectory (data/*.json)
 │   │   └── router.py         # DepartmentRouter: questions → department codes per question (LLM)
 │   ├── drafting/             # draft reply letters (service.draft_response)
-│   │   ├── letter.py         # BKS letter frame, Polish date, placeholders, redirect template (no LLM)
-│   │   └── drafters.py       # ArchiveReplyAdapter (DUPLICATE), DepartmentReplyDrafter (STANDARD) — LLM
+│   │   ├── letter.py         # redirect template (art. 4 ust. 3), placeholders, template body (no LLM)
+│   │   └── drafters.py       # ReplyDrafter: body from documents and/or the archived reply (LLM)
 │   └── ingestion/
 │       ├── chunking.py
 │       └── indexer.py        # ingest(): text → chunks → embeddings → vector store

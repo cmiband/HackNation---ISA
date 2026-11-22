@@ -14,10 +14,9 @@ def test_mock_conforms_and_returns_valid_result():
 
 
 def test_mock_draft_response():
-    from contracts.models import DraftInput
+    from contracts.models import DocumentInput, DraftInput
 
     service = get_ai_service(mock=True)
-    analysis = service.analyze_request(AnalyzeInput(case_id=1, text="x"))
-    draft = service.draft_response(DraftInput(analysis=analysis, case_number="BKS.IV.1431.1.2026"))
-    assert "BKS.IV.1431.1.2026" in draft.letter_text and "Szanowni Państwo," in draft.letter_text
-    assert all(v in draft.letter_text for v in draft.values_to_verify)
+    draft = service.draft_response(DraftInput(questions=["a", "b"], documents=[DocumentInput(text="x")]))
+    assert draft.body.startswith("w odpowiedzi") and draft.unanswered_questions == [2]
+    assert all(v in draft.body for v in draft.values_to_verify)

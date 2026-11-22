@@ -70,6 +70,8 @@ class AnalyzeResult(BaseModel):
     similar_cases: list[SimilarCase] = Field(default_factory=list)  # best first, only relevant ones
     triage: Triage = Field(default_factory=Triage)
     warnings: list[str] = Field(default_factory=list)  # e.g. LLM or vector DB unavailable -> partial result
+    # OUT_OF_SCOPE only: ready body of the redirect letter (art. 4 ust. 3 UDIP + competent body's contacts)
+    redirect_draft: "DraftResult | None" = None
 
 
 class Health(BaseModel):
@@ -82,13 +84,25 @@ class Health(BaseModel):
 # --- Draft reply (Part 2) ---------------------------------------------------------------------------------
 
 
+class DraftResult(BaseModel):
+    """Body of the reply letter (between salutation and closing; letterhead/date/number/addressee: frontend)."""
+
+    body: str
+    # exact substrings of body the official must check: numbers/dates taken over from documents and
+    # placeholders in square brackets (e.g. "[brak odpowiedzi komórki merytorycznej]") — highlight them
+    values_to_verify: list[str] = Field(default_factory=list)
+    unanswered_questions: list[int] = Field(default_factory=list)  # 1-based numbers of the input questions
+    period_differs: bool = False  # values taken from the archived reply refer to another period -> verify
+    notes: str = ""  # explanation for the official (Polish)
+    warnings: list[str] = Field(default_factory=list)  # e.g. LLM unavailable -> template body
+
+
 class DocumentInput(BaseModel):
-    """A document given to the drafter: a file (`filename` + `data`) or already known `text`."""
+    """A document: a file (`filename` + `data`, .pdf / .docx) or already known `text`."""
 
     filename: str = ""
     data: bytes | None = None
     text: str | None = None
-    source: str = ""  # who wrote it: department code (e.g. "WE"), external body id, or "" if unknown
 
     @model_validator(mode="after")
     def _text_or_file(self) -> "DocumentInput":
@@ -98,25 +112,11 @@ class DocumentInput(BaseModel):
 
 
 class DraftInput(BaseModel):
-    """Everything needed to draft the reply letter of one case."""
-
-    analysis: AnalyzeResult  # result of analyze_request for this case (questions, subject, applicant, triage)
-    kind: TriageKind | None = None  # path chosen by the official; None = analysis.triage.kind
-    case_number: str | None = None  # Case.document_number, e.g. "BKS.IV.1431.18.2026" (placeholder if None)
-    letter_date: date | None = None  # date written on the letter (default: today)
-    department_replies: list[DocumentInput] = Field(default_factory=list)  # STANDARD: replies of the units
-    archived_reply: DocumentInput | None = None  # DUPLICATE: reply file of the duplicate case
-    competent_body_id: str | None = None  # OUT_OF_SCOPE: override of analysis.triage.competent_body_id
+    questions: list[str]  # the questions of the case (e.g. [q.text for q in analysis.questions])
+    # replies received from departments / units — any number, in any order, not tied to particular questions
+    documents: list[DocumentInput] = Field(default_factory=list)
+    # reply of an earlier, highly similar case (e.g. a DUPLICATE from triage): template + fallback facts
+    archived_reply: DocumentInput | None = None
 
 
-class DraftResult(BaseModel):
-    kind: TriageKind  # path the draft was written for
-    letter_text: str  # full letter: letterhead, date, case number, addressee, salutation, body, closing
-    body: str  # the part between salutation and closing
-    # exact substrings of letter_text the official must check: numbers/dates taken over from documents and
-    # placeholders in square brackets (e.g. "[adres wnioskodawcy]") — highlight them in the editor
-    values_to_verify: list[str] = Field(default_factory=list)
-    unanswered_questions: list[int] = Field(default_factory=list)  # 1-based numbers of analysis.questions
-    period_differs: bool = False  # DUPLICATE: the archived reply covers another period/scope -> verify values
-    notes: str = ""  # explanation for the official (Polish)
-    warnings: list[str] = Field(default_factory=list)  # e.g. LLM unavailable -> template draft
+AnalyzeResult.model_rebuild()
