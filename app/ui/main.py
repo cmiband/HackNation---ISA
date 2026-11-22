@@ -13,7 +13,7 @@ def _init_db_once() -> bool:
 
 
 st.set_page_config(
-    page_title="Intelligent Assistant (UDIP) - Bydgoszcz",
+    page_title="Asystent UDIP – Urząd Miasta Bydgoszczy",
     page_icon="🏛️",
     layout="wide",
 )
@@ -33,14 +33,14 @@ st.markdown(
 
 # Streamlit standard tabs navigation
 tab_status, tab_upload, tab_dashboard, tab_anonymize = st.tabs([
-    "🛠️ System Status",
-    "📤 Upload Request",
-    "📊 Dashboard",
+    "🛠️ Stan systemu",
+    "📤 Dodaj wnioski",
+    "📊 Rejestr",
     "🕶️ Anonimizacja",
 ])
 
 with tab_status:
-    st.subheader("System & Storage Verification")
+    st.subheader("Stan systemu i magazynu plików")
 
     # Ensure required storage folders exist
     settings.ensure_directories()
@@ -51,39 +51,39 @@ with tab_status:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### 🗄️ SQLite Database Status")
+        st.markdown("### 🗄️ Baza danych (SQLite)")
         if db_status.get("connected"):
-            st.success("✅ SQLite Database Connected!")
-            st.write(f"**Database URL:** `{db_status.get('database_url')}`")
+            st.success("✅ Połączono z bazą danych")
+            st.write(f"**Adres bazy:** `{db_status.get('database_url')}`")
             st.metric(
-                label="Verified DB Ping Operations",
+                label="Testowe zapisy do bazy",
                 value=f"{db_status.get('pings_count', 0)} writes",
             )
-            st.write(f"**Latest write timestamp (UTC):** `{db_status.get('latest_ping')}`")
+            st.write(f"**Ostatni zapis (UTC):** `{db_status.get('latest_ping')}`")
         else:
-            st.error(f"❌ Database Connection Failed: {db_status.get('error')}")
+            st.error(f"❌ Brak połączenia z bazą: {db_status.get('error')}")
 
-        if st.button("🔄 Execute SQLite Write/Read Ping"):
+        if st.button("🔄 Test zapisu i odczytu bazy"):
             fresh_status = check_db_connection()
             st.toast(
-                f"Write successful! Total writes in DB: {fresh_status.get('pings_count')}",
+                f"Zapis udany. Liczba testowych zapisów: {fresh_status.get('pings_count')}",
                 icon="✅",
             )
             st.rerun()
 
     with col2:
-        st.markdown("### 📁 Host Storage Folders Status")
+        st.markdown("### 📁 Magazyn plików")
         storage_exists = settings.STORAGE_DIR.exists()
         apps_exists = settings.applications_dir.exists()
         resp_exists = settings.responses_dir.exists()
 
         if storage_exists and apps_exists and resp_exists:
-            st.success("✅ Host Storage Directory Mounted & Ready!")
-            st.write(f"**Root Storage:** `{settings.STORAGE_DIR}`")
-            st.write(f"**Applications Archive:** `{settings.applications_dir}`")
-            st.write(f"**Responses Archive:** `{settings.responses_dir}`")
+            st.success("✅ Magazyn plików gotowy")
+            st.write(f"**Katalog główny:** `{settings.STORAGE_DIR}`")
+            st.write(f"**Wnioski:** `{settings.applications_dir}`")
+            st.write(f"**Odpowiedzi:** `{settings.responses_dir}`")
         else:
-            st.warning("⚠️ Some storage directories are not yet initialized.")
+            st.warning("⚠️ Część katalogów magazynu nie została jeszcze utworzona.")
 
 with tab_upload:
     upload.render()

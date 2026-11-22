@@ -23,13 +23,14 @@ def test_empty_dashboard_frame_has_expected_columns():
     assert list(df.columns) == DASHBOARD_COLUMNS
     assert len(df) == 0
     assert DASHBOARD_COLUMNS == [
-        "#",
-        "Initials",
-        "Topic",
-        "Upload date",
-        "Deadline",
-        "Days to deadline",
-        "Reply date",
+        "Lp.",
+        "Inicjały",
+        "Numer sprawy",
+        "Przedmiot wniosku",
+        "Data wpływu",
+        "Termin odpowiedzi",
+        "Pozostało dni",
+        "Data odpowiedzi",
         "Status",
     ]
 
@@ -75,25 +76,25 @@ def test_load_dashboard_frame_queries_and_maps_columns():
 
     # Row 1: older case (2026-11-01), already replied -> Days to deadline is NA.
     row1 = df.iloc[0]
-    assert row1["#"] == 1
-    assert row1["Initials"] == ""
-    assert row1["Topic"] == ""
-    assert row1["Upload date"] == date(2026, 11, 1)
-    assert row1["Deadline"] == date(2026, 11, 15)
-    assert pd.isna(row1["Days to deadline"])
-    assert row1["Reply date"] == date(2026, 11, 14)
-    assert row1["Status"] == "Response_Sent"
+    assert row1["Lp."] == 1
+    assert row1["Inicjały"] == ""
+    assert row1["Przedmiot wniosku"] == ""
+    assert row1["Data wpływu"] == date(2026, 11, 1)
+    assert row1["Termin odpowiedzi"] == date(2026, 11, 15)
+    assert pd.isna(row1["Pozostało dni"])
+    assert row1["Data odpowiedzi"] == date(2026, 11, 14)
+    assert row1["Status"] == "Odpowiedź wysłana"
 
     # Row 2: newer case (2026-11-10), due in 2 days from 2026-11-22.
     row2 = df.iloc[1]
-    assert row2["#"] == 2
-    assert row2["Initials"] == "DB"
-    assert row2["Topic"] == "Road repairs"
-    assert row2["Upload date"] == date(2026, 11, 10)
-    assert row2["Deadline"] == date(2026, 11, 24)
-    assert row2["Days to deadline"] == 2
-    assert row2["Reply date"] is None
-    assert row2["Status"] == "New"
+    assert row2["Lp."] == 2
+    assert row2["Inicjały"] == "DB"
+    assert row2["Przedmiot wniosku"] == "Road repairs"
+    assert row2["Data wpływu"] == date(2026, 11, 10)
+    assert row2["Termin odpowiedzi"] == date(2026, 11, 24)
+    assert row2["Pozostało dni"] == 2
+    assert row2["Data odpowiedzi"] is None
+    assert row2["Status"] == "Nowy"
 
 
 def test_load_dashboard_data_returns_case_ids_in_row_order():
@@ -180,16 +181,16 @@ def test_select_dashboard_rows_top_10_by_deadline_and_show_all():
     top_ids, top_df = select_dashboard_rows(case_ids, df, show_all=False)
     assert len(top_df) == 10
     assert len(top_ids) == 10
-    assert list(top_df["#"]) == list(range(1, 11))
-    assert list(top_df["Deadline"]) == sorted(top_df["Deadline"])
-    assert all(top_df["Status"] == "New")
-    assert top_df.iloc[0]["Topic"] == "Active 11"  # deadline 2026-11-17 (earliest active)
+    assert list(top_df["Lp."]) == list(range(1, 11))
+    assert list(top_df["Termin odpowiedzi"]) == sorted(top_df["Termin odpowiedzi"])
+    assert all(top_df["Status"] == "Nowy")
+    assert top_df.iloc[0]["Przedmiot wniosku"] == "Active 11"  # deadline 2026-11-17 (earliest active)
 
     # Show all: returns all 14 rows in original oldest -> newest order.
     all_ids, all_df = select_dashboard_rows(case_ids, df, show_all=True)
     assert len(all_df) == 14
     assert all_ids == case_ids
-    assert all_df.iloc[0]["Topic"] == "Archived 1"
+    assert all_df.iloc[0]["Przedmiot wniosku"] == "Archived 1"
 
 
 def test_year_filter_and_case_years():

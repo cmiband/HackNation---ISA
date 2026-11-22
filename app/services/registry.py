@@ -90,7 +90,7 @@ def mark_case_query(
             raise LookupError(f"Case {case_id} does not exist.")
         if case.status != CaseStatus.REQUEST_SENT:
             raise InvalidStatusTransitionError(
-                f"Case {case_id} has status {case.status.value}; only Request_Sent cases can go to Query."
+                f"Sprawa {case_id} ma status {case.status.value}; kwerenda jest możliwa tylko po wysłaniu zapytań."
             )
         case.response_deadline = new_deadline
         case.status = CaseStatus.QUERY
@@ -225,7 +225,7 @@ def update_case_metadata(
 ) -> Case:
     """Save the registry data verified by the official (writes a ``CaseHistory`` row)."""
     if response_deadline < created_date:
-        raise ValueError("The response deadline cannot be earlier than the date of receipt.")
+        raise ValueError("Termin odpowiedzi nie może być wcześniejszy niż data wpływu.")
     with ExitStack() as stack:
         db = session if session is not None else stack.enter_context(Session(engine))
         repo = CaseRepository(db)
@@ -236,7 +236,7 @@ def update_case_metadata(
         if number is not None:
             clash = db.exec(select(Case).where(Case.document_number == number, Case.id != case_id)).first()
             if clash is not None:
-                raise ValueError(f"Case number {number} is already used by another case.")
+                raise ValueError(f"Numer sprawy {number} jest już użyty w innej sprawie.")
         case.document_number = number
         case.created_date = created_date
         case.response_deadline = response_deadline
