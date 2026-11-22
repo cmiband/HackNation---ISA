@@ -202,17 +202,29 @@ columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline` — color-highlighte
 defaults to top 10 cases by nearest deadline with a "Show all cases" toggle for the full oldest → newest list).
   - **Case detail popup (`app/ui/views/case_detail.py` → `show_case_detail(case_id)`):** `st.dialog` stretched to
     ~95% of the window. Top left: application filename and deadline. Top right: one status-dependent button —
-    `New` → "Wykonaj analizę" (calls `app/services/registry.py::request_case_analysis`, a placeholder that returns
-    `False` until the AI analysis is wired), `Processed` → "Mark as Request Sent", `Request_Sent` → "Query",
+    `New` → "Wykonaj analizę" (calls `app/services/registry.py::request_case_analysis`: runs `analyze_request` of
+    the real `AIService` via `get_ai_service()`, cached once per process with `st.cache_resource` in
+    `case_detail.get_cached_ai_service`; `AI_MOCK=1` switches to `MockAIService`), sets `Case.topic` = `summary`, status → `Processed`, and creates
+    one `DepartmentRequest` (`Suggested`, `request_text` = question text) per question × department code found in the
+    `Department` table — unknown codes skipped; one commit with the `CaseHistory` snapshot; the popup stays open via
+    `st.rerun(scope="fragment")`), `Processed` → "Mark as Request Sent", `Request_Sent` → "Query" (shows a "New deadline" date input with Confirm / Cancel; Confirm calls
+    `registry.mark_case_query(case_id, new_deadline)`: sets `response_deadline`, status → `Query`, writes a
+    `CaseHistory` snapshot),
     `Response_Generated` → "Mark as Response Sent" (also sets `response_date`); `Query` / `Response_Sent` → no button.
     The status buttons call `registry.advance_case_status` (`STATUS_TRANSITIONS`, writes a `CaseHistory` snapshot)
-    and rerun the app, which closes the popup and refreshes the table. "Close" button (and the dialog's ✕) closes it.
-    Below the header, the left ~60% shows a **PDF preview** of the application: `load_case_detail` fetches `FileData`
+    and rerun only the popup, which stays open with the new status. "Close" reruns the app (refreshes the table).
+    The popup shows a **PDF preview** of the application: `load_case_detail` fetches `FileData`
     by `Case.application_id` (`FileDataRepository.get_by_id`) and resolves `settings.applications_dir / filename`
     (base name only). Rendering uses `st.pdf` when the optional `streamlit[pdf]` extra is installed, otherwise a
     base64 `data:application/pdf` `<iframe>`. Preview type follows the file extension: `.pdf` as above; `.docx` → `docx_to_html` (python-docx, document order:
     headings, paragraphs with bold/italic/underline, tables; text HTML-escaped; no images/headers/footers) shown via
-    `st.html` in a scrollable box; other extensions → info message. Missing file → warning.
+    `st.html` in a scrollable box; other extensions → info message. Missing file → warning. Order below the header: the case's **department requests** table first
+    (`load_department_requests` → department code, status, request text; per row a 🗑 button →
+    `registry.delete_department_request` and a ✉ button → `registry.mark_department_request_sent`, `Suggested` →
+    `Sent`; buttons only on `Suggested` rows, `Sent` rows show a non-clickable paper plane
+    `:material/send:` instead, plus a ✔ button → `registry.complete_department_request` (`Sent` → `Completed`) once the case is `Request_Sent`; `Completed`
+    rows show a non-clickable check `:material/task_alt:`; when the case is `Request_Sent` a "Place for file input"
+    placeholder is shown under the table (file input TODO); when the case is `Request_Sent` or `Query` a primary "Finalize Response" button is shown under the table, above the file preview (`shows_finalize_response`; action TODO, currently a toast); `on_click` callbacks, so the popup re-renders with the change and stays open; callbacks must not call `st.toast` (breaks the frontend inside a dialog), they store the message in `st.session_state` and the toast is shown on render), then the file preview underneath.
   - **DB integration (`app/ui/views/upload.py` → `load_files()`):** done. After `save_uploaded_file(...)` returns
     `saved_path`, `CaseRepository.add_with_application` persists `FileData` (`filename=saved_path.name` — reflects any
     `_1`/`_2` deduplication — and `FileType.APPLICATION`) and a `Case` (status `NEW`, `created_date=today`,

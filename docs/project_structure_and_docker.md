@@ -61,8 +61,8 @@ HackNation---ISA/
 │   │   ├── archive_loader.py # archive application/response pairs → Response_Sent cases (user AL)
 │   │   ├── current_user.py   # hardcoded MVP current user (test testowski, initials tt): get_or_create
 │   │   ├── file_storage.py   # save uploaded files under storage/files/{applications,responses}/
-│   │   ├── registry.py       # STATUS_TRANSITIONS, advance_case_status (writes CaseHistory),
-│   │   │                     #   request_case_analysis (placeholder until AI analysis is wired)
+│   │   ├── registry.py       # STATUS_TRANSITIONS, advance_case_status (writes CaseHistory), mark_case_query,
+│   │   │                     #   request_case_analysis (mock AI → topic, Processed, DepartmentRequests)
 │   │   ├── exporter.py       # Part 2: final response → .docx / .txt
 │   │   └── ai.py             # get_ai() = st.cache_resource around ai_service.factory
 │   └── ui/
@@ -74,7 +74,7 @@ HackNation---ISA/
 │           ├── dashboard.py      # implemented: case table from SQLite (top 10 by deadline + "Show all" toggle,
 │           │                     #   deadline urgency highlights, 🔍 details button per row)
 │           ├── case_detail.py    # implemented: case detail popup (st.dialog): filename, deadline, status button,
-│           │                     #   PDF / DOCX preview of the application file
+│           │                     #   department requests table (delete / Sent / Completed), PDF / DOCX preview below it
 │           ├── upload.py         # implemented: multi-file drag & drop (PDF/DOCX), summary, accept/reject;
 │           │                     #   new cases assigned to the current user
 │           ├── calendar.py       # table + calendar, year filter, highlighting
