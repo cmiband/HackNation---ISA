@@ -128,6 +128,8 @@ HackNation---ISA/
 │   ├── departments.json      # 29 units scraped from BIP (scripts/scrape_departments.py)
 │   ├── templates/
 │   │   └── response_template.docx   # Part 2
+│   ├── eval/
+│   │   └── similar_cases.json  # labelled evaluation set for similar-case search (scripts/eval_similar_cases.py)
 │   └── seed/
 │       ├── archive/          # 9 sample request/reply pairs: applications/, responses/ (all archived cases)
 │       ├── analysis.json     # cached LLM analysis of the archive requests (questions, summary, ...)
@@ -139,6 +141,7 @@ HackNation---ISA/
 │   ├── seed_qdrant_local.py  # extract/cache .local/ requests, index into Qdrant, test hybrid search
 │   ├── archive_loader.py     # manual rerun of app/services/archive_loader.py (also runs in init_db when no cases exist)
 │   ├── calibrate_similarity.py # archive cross-check vs. similarity thresholds (no LLM)
+│   ├── eval_similar_cases.py # metrics of search + triage on data/eval (no LLM)
 │   ├── seed_all.py           # idempotent, run by app.bootstrap: archive pairs → SQLite + Qdrant (cached LLM output)
 │   ├── reindex.py            # rebuild the vector index from DB + data/ (after a backend change)
 │   ├── download_models.py    # Dockerfile: bakes the embedding model into the image (runtime offline)

@@ -139,6 +139,30 @@ max 0.81; out-of-scope 15/17 max 0.82/0.85. Real check: request 599 vs archived 
   → STANDARD (WGK) ✓; voivodeship conservator decisions → STANDARD (BKZ) ✗ (router prefers a City Hall unit;
   archive cases 15/17 were routed to WGK/BKZ and WZP/WIM the same way) → needs §4.1/§4.2.
 - Re-check after changing the model, prompts or archive: `scripts/calibrate_similarity.py` (no LLM).
+- **Caveat:** these thresholds were fitted on 9 archive cases + 5 test requests — far too few; they are not
+  validated. Tuning is done later by the team on a separate set.
+
+### 3.4 Evaluation set (`data/eval/similar_cases.json`, `scripts/eval_similar_cases.py`)
+Hand-written, labelled, **evaluation only** (do not tune on it): 30 archive cases (education, waste, greenery,
+construction, property, finance, taxes, civic budget, registry office, NGOs, promotion, HR, investments,
+procurement, alcohol permits, housing, monuments, CCTV, …) and 46 queries in 6 kinds — `duplicate` (8),
+`duplicate_new_period` (7), `partial` (8), `related` (8), `unrelated` (7), `hard_negative` (8, shares a street /
+venue / keyword with an archived case). Questions are in extracted form; the script runs the public
+`analyze_request` path with the real embedder, in-memory Qdrant and a stub instead of the LLM.
+
+**Baseline (mmlw-roberta-base, dense cosine coverage, duplicate=0.92 / low=0.91):** DUPLICATE recall 15/15,
+**precision 15/40 (38 %)**; partial 1/8, related 0/8 (all flagged DUPLICATE), unrelated 3/7, hard negatives
+1/8; relevant case listed 30/31, ranked first 27/31; 11/15 negatives get similar cases. Raw cosines: true
+duplicates 0.94–0.995, best non-matching case for unrelated queries 0.87–0.975 — dense cosine of templated
+administrative questions ("Liczba … w Bydgoszczy w 2024 r.") does not separate them at any threshold.
+Ranking is good; the absolute decision is not. Directions for the retrieval work (not implemented):
+- decide on relative signals (margin to the 2nd-best case, rank) instead of absolute cosine;
+- add the lexical BM25 score to the decision (shared rare terms: "rozwodów" vs "ślubów", "studentów" vs
+  "uczniów", the year), not only to the ranking;
+- cross-encoder reranker on the top-k (e.g. a Polish reranker from sdadas) or a retrieval-tuned embedder;
+- LLM confirmation of DUPLICATE candidates (one call: "same information requested? same period?") — the
+  drafting step for fast path 1 already plans `same_scope` / `period_differs` (§3.2).
+
 Note: mmlw cosine for unrelated Polish sentences is usually well above 0 — "near zero" means "below the
 calibrated noise floor".
 
@@ -336,7 +360,7 @@ Upload any PDF/DOCX → text → proposals → confirm → download redacted `.t
 - `DepartmentRequest`: `reply_file_id` (FK `FileData`, nullable), `reply_text: str | None`.
 - `contracts/enums.py`: `FileType.DEPARTMENT_REPLY` (shared file → announce).
 
-### 8.7 Knowledge base tab (`views/knowledge_base.py`, P1 — jury test 6)
+### 8.7 Knowledge base tab (`views/knowledge_base.py`) — **not in MVP v0** (see §12)
 Archive list (case number, topic, reply yes/no), **add archive pair** (request + reply + number + dates →
 `Response_Sent` case → `extract_text` → `analyze` → `index_case`), delete case (SQLite + `delete_case`),
 "Reindex all". Legislation (P2): upload and list files only — no legal RAG in the MVP (say so in the
@@ -402,3 +426,10 @@ start cleanly.
   forwarding?
 - Deadline for departments in inquiries; KPA art. 57 §4 for UDIP deadlines; is `.docx` acceptable for `.doc`?
 - Current consolidated-text citation of UDIP to use in letters.
+
+## 12. Backlog — ideas after MVP v0
+- **Archive management at runtime** (jury test 6): add an archive request + reply pair in the UI (new
+  `Response_Sent` case → `analyze_request` → indexed), delete an archive case (SQLite + `delete_case`),
+  "reindex all". Backend mostly exists in `scripts/seed_all.py` (`index_archive`).
+- Legislation upload (UDIP, KPA, orders) — store and list; legal RAG later.
+- Department inquiry drafts (§5.4), Polish UI labels (§8.8).
