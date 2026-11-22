@@ -99,14 +99,18 @@ def load_files(
             )
             # `saved_path.name` is the actual filename on disk after deduplication.
             today = date.today()
-            cases.add_with_application(
-                Case(
-                    created_date=today,
-                    response_deadline=today + timedelta(days=RESPONSE_DEADLINE_DAYS),
-                    status=CaseStatus.NEW,
-                ),
-                FileData(filename=saved_path.name, file_type=FileType.APPLICATION),
-            )
+            try:
+                cases.add_with_application(
+                    Case(
+                        created_date=today,
+                        response_deadline=today + timedelta(days=RESPONSE_DEADLINE_DAYS),
+                        status=CaseStatus.NEW,
+                    ),
+                    FileData(filename=saved_path.name, file_type=FileType.APPLICATION),
+                )
+            except Exception:
+                saved_path.unlink(missing_ok=True)
+                raise
             saved_paths.append(saved_path)
             if on_file is not None:
                 on_file(idx, total, f, saved_path)
