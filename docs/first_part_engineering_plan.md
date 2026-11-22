@@ -184,6 +184,17 @@ Use one DB connection/session per thread or Streamlit session.
 - `CaseHistoryRepository`: `add`.
 - Repositories do no business logic, except `CaseRepository.update`, which writes a `CaseHistory.snapshot` in the same commit as the change. `app/services/registry.py` handles the remaining rules (status transitions).
 
+### 5.2 Case data for the AI flow — implemented
+- `Case.analysis_json` (the whole `AnalyzeResult`, read with `registry.load_analysis(case)`), `Case.draft_json`
+  (current reply draft), `FileData.case_id` + `FileType.DEPARTMENT_REPLY` (unit replies attached to a case).
+- `init_db()` runs `add_missing_columns()`: nullable columns added to the models are added to an existing
+  SQLite file (`ALTER TABLE … ADD COLUMN`), so old `app.db` files keep working.
+- `request_case_analysis` stores the analysis, creates **one** `SUGGESTED` request per department with the
+  numbered questions assigned to it, and raises `FileNotFoundError` if the application file is missing.
+- Case numbers: `suggest_case_number(session, year)` → `BKS.IV.1431.<highest of the year + 1>.<year>`, set on
+  upload; `update_case_metadata(...)` saves the number, date of receipt, deadline, assignee and topic
+  verified by the official (unique number, deadline ≥ receipt, history row).
+
 ### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested) — **implemented**
 - `response_deadline(received)` = received + 14 days, `query_deadline(received)` = received + 2 months, both moved
   to the next working day (Sat/Sun/Polish holiday from the `holidays` package, incl. 24 December);

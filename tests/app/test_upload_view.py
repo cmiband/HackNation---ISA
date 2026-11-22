@@ -68,6 +68,8 @@ def test_load_files_saves_all_as_applications(tmp_path):
         assert all(c.application.file_type == FileType.APPLICATION for c in cases)
         assert all(c.status == CaseStatus.NEW for c in cases)
         assert all(c.response_deadline == response_deadline(c.created_date) for c in cases)
+        year = cases[0].created_date.year
+        assert [c.document_number for c in cases] == [f"BKS.IV.1431.1.{year}", f"BKS.IV.1431.2.{year}"]
     assert saved == [apps_dir / "a.pdf", apps_dir / "b.docx"]
     assert saved[0].read_bytes() == b"pdf"
     assert saved[1].read_bytes() == b"docx"

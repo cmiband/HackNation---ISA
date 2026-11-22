@@ -4,11 +4,12 @@ Status changes go through ``CaseRepository.update``, which writes a ``CaseHistor
 snapshot on every change.
 """
 
+import re
 from contextlib import ExitStack
 from datetime import date
 from pathlib import Path
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from ai_service.factory import get_ai_service
 from app.config import settings
@@ -20,7 +21,7 @@ from app.db.repository import (
     DepartmentRequestRepository,
 )
 from contracts.enums import CaseStatus, RequestStatus
-from contracts.models import AnalyzeInput
+from contracts.models import AnalyzeInput, AnalyzeResult
 from contracts.protocol import AIServiceProtocol
 
 # Manual "mark as ..." transitions triggered from the case detail popup.
@@ -145,10 +146,11 @@ def request_case_analysis(
     """Analyze a ``NEW`` case and move it to ``PROCESSED``.
 
     Calls ``analyze_request`` (default: the real ``AIService`` via ``get_ai_service()``; env
-    ``AI_MOCK=1`` switches to ``MockAIService``; the UI passes a process-cached service), then
-    sets ``Case.topic`` to the summary and creates one ``SUGGESTED`` ``DepartmentRequest`` per
-    question and department code. Unknown department codes are skipped. The requests, the case
-    change and its ``CaseHistory`` snapshot are written in one commit.
+    ``AI_MOCK=1`` switches to ``MockAIService``; the UI passes a process-cached service), stores the whole
+    result in ``Case.analysis_json``, sets ``Case.topic`` to the summary and creates one ``SUGGESTED``
+    ``DepartmentRequest`` per department, whose ``request_text`` lists the numbered questions assigned to it.
+    Unknown department codes are skipped. Everything is written in one commit (with a ``CaseHistory`` row).
+    Raises ``FileNotFoundError`` if the application file is missing.
     """
     with ExitStack() as stack:
         db = session if session is not None else stack.enter_context(Session(engine))
@@ -166,34 +168,90 @@ def request_case_analysis(
             _analyze_input(case.id, case.application.filename, applications_dir)
         )
 
-        codes = list(dict.fromkeys(code for q in result.questions for code in q.departments))
-        departments = DepartmentRepository(db).get_by_codes(codes)
-        for question in result.questions:
-            for code in dict.fromkeys(question.departments):
-                department = departments.get(code)
-                if department is None or department.id is None:
-                    continue
-                db.add(
-                    DepartmentRequest(
-                        case_id=case.id,
-                        department_id=department.id,
-                        request_status=RequestStatus.SUGGESTED,
-                        request_text=question.text,
-                    )
+        for department_id, text in _requests_per_department(db, result).items():
+            db.add(
+                DepartmentRequest(
+                    case_id=case.id,
+                    department_id=department_id,
+                    request_status=RequestStatus.SUGGESTED,
+                    request_text=text,
                 )
+            )
 
+        case.analysis_json = result.model_dump_json()
         case.topic = result.summary or case.topic
         case.status = CaseStatus.PROCESSED
+        return repo.update(case)
+
+
+def _requests_per_department(db: Session, result: AnalyzeResult) -> dict[int, str]:
+    """department id -> numbered questions of the request assigned to that department (in question order)."""
+    codes = list(dict.fromkeys(code for q in result.questions for code in q.departments))
+    departments = DepartmentRepository(db).get_by_codes(codes)
+    lines: dict[int, list[str]] = {}
+    for number, question in enumerate(result.questions, start=1):
+        for code in dict.fromkeys(question.departments):
+            department = departments.get(code)
+            if department is not None and department.id is not None:
+                lines.setdefault(department.id, []).append(f"{number}. {question.text}")
+    return {department_id: "\n".join(items) for department_id, items in lines.items()}
+
+
+def load_analysis(case: Case) -> AnalyzeResult | None:
+    """The stored analysis of a case (None if it was not analyzed yet)."""
+    return AnalyzeResult.model_validate_json(case.analysis_json) if case.analysis_json else None
+
+
+CASE_NUMBER_PREFIX = "BKS.IV.1431"
+_CASE_NUMBER = re.compile(rf"^{re.escape(CASE_NUMBER_PREFIX)}\.(\d+)\.(\d{{4}})$")
+
+
+def suggest_case_number(session: Session, year: int) -> str:
+    """Next free number of ``year``: ``BKS.IV.1431.<highest of that year + 1>.<year>``."""
+    numbers = session.exec(select(Case.document_number).where(Case.document_number.is_not(None))).all()
+    used = [int(m.group(1)) for n in numbers if (m := _CASE_NUMBER.match(n.strip())) and int(m.group(2)) == year]
+    return f"{CASE_NUMBER_PREFIX}.{max(used, default=0) + 1}.{year}"
+
+
+def update_case_metadata(
+    case_id: int,
+    *,
+    document_number: str | None,
+    created_date: date,
+    response_deadline: date,
+    assignee_id: int | None,
+    topic: str | None,
+    session: Session | None = None,
+) -> Case:
+    """Save the registry data verified by the official (writes a ``CaseHistory`` row)."""
+    if response_deadline < created_date:
+        raise ValueError("The response deadline cannot be earlier than the date of receipt.")
+    with ExitStack() as stack:
+        db = session if session is not None else stack.enter_context(Session(engine))
+        repo = CaseRepository(db)
+        case = repo.get_case_by_id(case_id)
+        if case is None:
+            raise LookupError(f"Case {case_id} does not exist.")
+        number = (document_number or "").strip() or None
+        if number is not None:
+            clash = db.exec(select(Case).where(Case.document_number == number, Case.id != case_id)).first()
+            if clash is not None:
+                raise ValueError(f"Case number {number} is already used by another case.")
+        case.document_number = number
+        case.created_date = created_date
+        case.response_deadline = response_deadline
+        case.assignee_id = assignee_id
+        case.topic = (topic or "").strip() or None
         return repo.update(case)
 
 
 def _analyze_input(case_id: int, filename: str, applications_dir: Path | None) -> AnalyzeInput:
     """Build the AI input from the stored application file.
 
-    Falls back to empty text when the file is missing (enough for the mock service).
+    Raises ``FileNotFoundError`` when the file is missing (an empty text would give an empty analysis).
     """
     name = Path(filename).name
     path = (applications_dir or settings.applications_dir) / name if name else None
-    if path is not None and path.is_file():
-        return AnalyzeInput(case_id=case_id, filename=name, data=path.read_bytes())
-    return AnalyzeInput(case_id=case_id, filename=name, text="")
+    if path is None or not path.is_file():
+        raise FileNotFoundError(f"Application file {name or '(none)'} not found in storage.")
+    return AnalyzeInput(case_id=case_id, filename=name, data=path.read_bytes())
