@@ -10,14 +10,15 @@ from app.db.models import Case, Department, DepartmentRequest, FileData
 from app.db.repository import CaseRepository, DepartmentRepository, DepartmentRequestRepository
 from app.ui.views.case_detail import (
     DetailActionKind,
+    RequestRowControls,
     detail_action_for,
     docx_to_html,
     load_case_detail,
     load_department_requests,
-    RequestRowControls,
-    request_row_controls,
     pdf_iframe_html,
+    request_row_controls,
     resolve_application_path,
+    shows_finalize_response,
 )
 from contracts.enums import CaseStatus, FileType, RequestStatus
 
@@ -155,3 +156,18 @@ def test_docx_to_html_renders_headings_formatting_and_tables_in_order():
 )
 def test_request_row_controls(status, case_status, expected):
     assert request_row_controls(status, case_status) == expected
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (CaseStatus.NEW, False),
+        (CaseStatus.PROCESSED, False),
+        (CaseStatus.REQUEST_SENT, True),
+        (CaseStatus.QUERY, True),
+        (CaseStatus.RESPONSE_GENERATED, False),
+        (CaseStatus.RESPONSE_SENT, False),
+    ],
+)
+def test_shows_finalize_response(status, expected):
+    assert shows_finalize_response(status) is expected

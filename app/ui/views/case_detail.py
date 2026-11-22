@@ -16,6 +16,7 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from sqlmodel import Session
 
+from ai_service.factory import get_ai_service
 from app.config import settings
 from app.db.engine import engine
 from app.db.repository import (
@@ -25,13 +26,14 @@ from app.db.repository import (
 )
 from app.services.registry import (
     advance_case_status,
-    mark_case_query,
     complete_department_request,
     delete_department_request,
+    mark_case_query,
     mark_department_request_sent,
     request_case_analysis,
 )
 from contracts.enums import CaseStatus, RequestStatus
+from contracts.protocol import AIServiceProtocol
 
 # Make the dialog cover almost the whole browser window.
 _DIALOG_CSS = """
@@ -201,6 +203,15 @@ def _show_request_flash() -> None:
         st.toast(message, icon=icon)
 
 
+# Case statuses that show the "Finalize Response" button under the department requests.
+FINALIZE_RESPONSE_STATUSES = frozenset({CaseStatus.QUERY, CaseStatus.REQUEST_SENT})
+
+
+def shows_finalize_response(case_status: CaseStatus) -> bool:
+    """Whether the "Finalize Response" button is shown for ``case_status``."""
+    return case_status in FINALIZE_RESPONSE_STATUSES
+
+
 def render_department_requests(case_id: int, case_status: CaseStatus) -> None:
     """Show the case's department requests as a table with per-row status buttons."""
     _show_request_flash()
@@ -214,6 +225,12 @@ def render_department_requests(case_id: int, case_status: CaseStatus) -> None:
     if case_status == CaseStatus.REQUEST_SENT:
         # TODO: replace with the file input for the departments' replies.
         st.html('<div class="file-input-placeholder">Place for file input</div>')
+
+    if shows_finalize_response(case_status) and st.button(
+        "Finalize Response", key="case_detail_finalize_response", type="primary"
+    ):
+        # TODO: generate the final response (Request_Sent / Query -> Response_Generated).
+        st.toast("Finalize Response is not implemented yet.", icon="ℹ️")
 
 
 def _render_request_rows(rows: list[DepartmentRequestRow], case_status: CaseStatus) -> None:
@@ -358,10 +375,17 @@ def render_pdf_preview(path: Path) -> None:
         st.markdown(pdf_iframe_html(data), unsafe_allow_html=True)
 
 
+@st.cache_resource(show_spinner="Loading AI models...")
+def get_cached_ai_service() -> AIServiceProtocol:
+    """Real ``AIService`` (``AI_MOCK=1`` -> mock), built once per process: models load only once."""
+    return get_ai_service()
+
+
 def _run_action(detail: CaseDetail, action: DetailAction) -> None:
     if action.kind == DetailActionKind.ANALYZE:
         try:
-            request_case_analysis(detail.case_id)
+            with st.spinner("Analyzing the request..."):
+                request_case_analysis(detail.case_id, ai_service=get_cached_ai_service())
         except Exception as exc:  # AI or DB failure: keep the popup open and show the error
             st.error(f"Analysis failed: {exc}")
             return

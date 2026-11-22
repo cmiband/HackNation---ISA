@@ -109,7 +109,12 @@ def test_request_case_analysis_with_mock_sets_topic_status_and_requests(session,
     case_id = _add_case(session, CaseStatus.NEW)
     ids = _add_departments(session, "WE")
 
-    case = request_case_analysis(case_id, session=session, applications_dir=tmp_path)
+    case = request_case_analysis(
+        case_id,
+        session=session,
+        applications_dir=tmp_path,
+        ai_service=get_ai_service(mock=True),
+    )
 
     assert case.status == CaseStatus.PROCESSED
     assert case.topic == get_ai_service(mock=True).analyze_request(

@@ -20,8 +20,8 @@ from app.db.repository import (
     DepartmentRequestRepository,
 )
 from contracts.enums import CaseStatus, RequestStatus
-from contracts.protocol import AIServiceProtocol
 from contracts.models import AnalyzeInput
+from contracts.protocol import AIServiceProtocol
 
 # Manual "mark as ..." transitions triggered from the case detail popup.
 # NEW -> PROCESSED is done by the analysis (see ``request_case_analysis``), not manually.
@@ -144,7 +144,8 @@ def request_case_analysis(
 ) -> Case:
     """Analyze a ``NEW`` case and move it to ``PROCESSED``.
 
-    Calls ``analyze_request`` (default: ``MockAIService`` via ``get_ai_service(mock=True)``),
+    Calls ``analyze_request`` (default: the real ``AIService`` via ``get_ai_service()``; env
+    ``AI_MOCK=1`` switches to ``MockAIService``; the UI passes a process-cached service), then
     sets ``Case.topic`` to the summary and creates one ``SUGGESTED`` ``DepartmentRequest`` per
     question and department code. Unknown department codes are skipped. The requests, the case
     change and its ``CaseHistory`` snapshot are written in one commit.
@@ -160,7 +161,7 @@ def request_case_analysis(
                 f"Case {case_id} has status {case.status.value}; only New cases can be analyzed."
             )
 
-        service = ai_service if ai_service is not None else get_ai_service(mock=True)
+        service = ai_service if ai_service is not None else get_ai_service()
         result = service.analyze_request(
             _analyze_input(case.id, case.application.filename, applications_dir)
         )

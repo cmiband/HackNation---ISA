@@ -203,7 +203,8 @@ defaults to top 10 cases by nearest deadline with a "Show all cases" toggle for 
   - **Case detail popup (`app/ui/views/case_detail.py` → `show_case_detail(case_id)`):** `st.dialog` stretched to
     ~95% of the window. Top left: application filename and deadline. Top right: one status-dependent button —
     `New` → "Wykonaj analizę" (calls `app/services/registry.py::request_case_analysis`: runs `analyze_request` of
-    `MockAIService` via `get_ai_service(mock=True)`, sets `Case.topic` = `summary`, status → `Processed`, and creates
+    the real `AIService` via `get_ai_service()`, cached once per process with `st.cache_resource` in
+    `case_detail.get_cached_ai_service`; `AI_MOCK=1` switches to `MockAIService`), sets `Case.topic` = `summary`, status → `Processed`, and creates
     one `DepartmentRequest` (`Suggested`, `request_text` = question text) per question × department code found in the
     `Department` table — unknown codes skipped; one commit with the `CaseHistory` snapshot; the popup stays open via
     `st.rerun(scope="fragment")`), `Processed` → "Mark as Request Sent", `Request_Sent` → "Query" (shows a "New deadline" date input with Confirm / Cancel; Confirm calls
@@ -223,7 +224,7 @@ defaults to top 10 cases by nearest deadline with a "Show all cases" toggle for 
     `Sent`; buttons only on `Suggested` rows, `Sent` rows show a non-clickable paper plane
     `:material/send:` instead, plus a ✔ button → `registry.complete_department_request` (`Sent` → `Completed`) once the case is `Request_Sent`; `Completed`
     rows show a non-clickable check `:material/task_alt:`; when the case is `Request_Sent` a "Place for file input"
-    placeholder is shown under the table (file input TODO); `on_click` callbacks, so the popup re-renders with the change and stays open; callbacks must not call `st.toast` (breaks the frontend inside a dialog), they store the message in `st.session_state` and the toast is shown on render), then the file preview underneath.
+    placeholder is shown under the table (file input TODO); when the case is `Request_Sent` or `Query` a primary "Finalize Response" button is shown under the table, above the file preview (`shows_finalize_response`; action TODO, currently a toast); `on_click` callbacks, so the popup re-renders with the change and stays open; callbacks must not call `st.toast` (breaks the frontend inside a dialog), they store the message in `st.session_state` and the toast is shown on render), then the file preview underneath.
   - **DB integration (`app/ui/views/upload.py` → `load_files()`):** done. After `save_uploaded_file(...)` returns
     `saved_path`, `CaseRepository.add_with_application` persists `FileData` (`filename=saved_path.name` — reflects any
     `_1`/`_2` deduplication — and `FileType.APPLICATION`) and a `Case` (status `NEW`, `created_date=today`,
