@@ -2,7 +2,7 @@ import streamlit as st
 
 from app.config import settings
 from app.db.engine import check_db_connection, init_db
-from app.ui.views import upload
+from app.ui.views import dashboard, upload
 
 st.set_page_config(
     page_title="Intelligent Assistant (UDIP) - Bydgoszcz",
@@ -87,6 +87,4 @@ with tab_upload:
     upload.render()
 
 with tab_dashboard:
-    st.subheader("📊 Case Dashboard")
-    st.caption("Organizer, deadlines tracking, and calendar overview.")
-    st.info("Dashboard placeholder.")
+    dashboard.render()
