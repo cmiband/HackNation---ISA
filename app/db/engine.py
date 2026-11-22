@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import text
+from sqlalchemy import Engine, text
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import settings
@@ -15,15 +15,17 @@ def get_session():
         yield session
 
 
-def init_db() -> None:
+def init_db(db_engine: Engine | None = None) -> None:
     """Create all tables and seed departments if the table is empty. Idempotent."""
     # Local imports: models must be registered on SQLModel.metadata before create_all.
     from app.db import models  # noqa: F401
     from app.db.repository import DepartmentRepository
 
-    settings.ensure_directories()
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
+    target_engine = db_engine or engine
+    if db_engine is None:
+        settings.ensure_directories()
+    SQLModel.metadata.create_all(target_engine)
+    with Session(target_engine) as session:
         DepartmentRepository(session).load_departments()
 
 

@@ -1,7 +1,7 @@
 import streamlit as st
 
 from app.config import settings
-from app.db.engine import check_db_connection
+from app.db.engine import check_db_connection, init_db
 from app.ui.views import upload
 
 st.set_page_config(
@@ -9,6 +9,15 @@ st.set_page_config(
     page_icon="🏛️",
     layout="wide",
 )
+
+
+@st.cache_resource
+def _ensure_db_initialized() -> bool:
+    init_db()
+    return True
+
+
+_ensure_db_initialized()
 
 st.markdown(
     """
