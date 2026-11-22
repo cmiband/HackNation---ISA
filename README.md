@@ -94,6 +94,45 @@ last: they have a larger daily quota (~500) but lower quality. Model IDs availab
 
 ## Available modules
 
+### AI service — the one entry point for the app (`ai_service/service.py`, contract `contracts/`)
+
+The app (UI, SQLite) uses only this; the modules below are its internals. One call per registered case, after
+the official confirmed it (e.g. `app/services/registry.py::request_case_analysis`):
+
+```python
+from ai_service.factory import get_ai_service
+from contracts.models import AnalyzeInput
+from contracts.protocol import DocumentReadError
+
+service = get_ai_service()          # AI_MOCK=1 -> canned data; wrap in st.cache_resource (models load once)
+try:
+    result = service.analyze_request(AnalyzeInput(case_id=case.id, filename=name, data=file_bytes))
+except DocumentReadError as exc:    # unreadable file; str(exc) is safe to show
+    ...
+result.summary                      # -> Case.topic (≤ 300 chars)
+result.applicant, result.letter_date, result.subject
+result.questions                    # [RequestQuestion(text, departments=["WE"])]
+result.suggested_departments        # unique codes -> DepartmentRequest rows (names in data/departments.json)
+result.similar_cases                # [SimilarCase(case_id = Case.Id, score 0–1, matches=[QuestionMatch])]
+result.triage.kind                  # TriageKind.STANDARD | DUPLICATE | OUT_OF_SCOPE (proposal; official decides)
+result.triage.duplicate_case_ids    # DUPLICATE: earlier cases with the same questions (check which have a reply)
+result.warnings                     # partial result, e.g. "LLM unavailable ..." — show them
+```
+
+What it does: parse the file (OCR for scans) → one LLM call (questions, summary, subject, applicant, date) →
+embed → similar-case search over the whole archive (the case itself excluded) → department routing (one LLM
+call) → triage → index the case's questions under `case_id` (calling it again for the same case replaces
+them). `service.delete_case(case_id)` removes a deleted case from the index; `service.health()` for the
+status page. LLM, embedder or Qdrant failures never raise — the result is partial and `warnings` explains.
+
+- **Scores**: cosine similarity of the embeddings rescaled to 0–1 (0 = unrelated, 1 = identical). A case is
+  listed only if one of its questions matches well (`SIMILARITY_LOW`); its `score` says how well it covers
+  **all** questions of the request.
+- **Triage**: `DUPLICATE` if every question matches an earlier case at cosine ≥ `SIMILARITY_DUPLICATE`
+  (0.90); `OUT_OF_SCOPE` if the router found no unit for any question and nothing is similar. Thresholds:
+  `.env` (`SIMILARITY_*`), calibrated on the sample requests.
+- 2 LLM calls per request (+1 OCR for scans). First call loads the embedding model (a few seconds).
+
 ### Question extraction (`ai_service/llm/`)
 
 Extracts only the applicant's questions/requests from the full text of a request (drops greetings,

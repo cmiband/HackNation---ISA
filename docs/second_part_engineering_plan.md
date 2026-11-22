@@ -81,7 +81,7 @@ full pipeline. Nothing is ever sent.
 
 ## 3. Fast path 1 — "Same question found" (P0, Subteam B)
 
-### 3.1 A similarity score that can be thresholded
+### 3.1 A similarity score that can be thresholded — **implemented** (`MatchedQuestion.dense_score`, `SimilarCaseHit.question_scores`, triage in `AIService`)
 The hybrid search returns **RRF scores** — rank-based, not comparable across queries, so they cannot say "this
 is practically the same question". Thresholds use the **dense cosine similarity** instead:
 
@@ -122,7 +122,11 @@ class AdaptedReply(BaseModel):
 ### 3.3 Calibration (`scripts/calibrate_similarity.py`, no LLM)
 Uses the cached questions of the seed cases (§7): prints the cosine `coverage` matrix between all seed cases.
 The known pairs (307↔599, 293↔543) must be ≥ `T_DUP`; unrelated pairs set the noise floor for `T_LOW` (§4).
-Thresholds go to `.env` (`SIMILARITY_DUPLICATE=0.90`, `SIMILARITY_LOW=...`) with calibrated defaults in code.
+Thresholds go to `.env` (`SIMILARITY_DUPLICATE=0.90`, `SIMILARITY_LOW=0.86`, `SIMILARITY_FLOOR=0.75`) with
+defaults in code. First calibration on the calendar topics of the samples (mmlw-roberta-base, no LLM):
+duplicates 307↔599 0.92, 293↔543 0.99, paraphrase 0.95; unrelated requests 0.76–0.87; an off-topic request
+max 0.81; out-of-scope 15/17 max 0.82/0.85. Real check: request 599 vs archived 307 questions → coverage
+0.93 → `DUPLICATE`. Re-check on the real extracted questions once the seed set exists.
 Note: mmlw cosine for unrelated Polish sentences is usually well above 0 — "near zero" means "below the
 calibrated noise floor".
 
@@ -209,38 +213,41 @@ questions assigned to it and the response date for the department. Stored in
 
 ## 6. AIService and contract v2 (P0, Subteam B; contract changes agreed by both subteams in hour 1)
 
-### 6.1 `ai_service/service.py` — `AIService` implementing the extended protocol
-Holds one instance each of `DocumentParser`, the LLM modules, `QuestionEmbedder`, `QuestionStore`, routers,
-drafters (all thread-safe; created once via `st.cache_resource` in `app/services/ai.py`). Logs latency, never
-document text. `factory.get_ai_service()` returns `AIService` when `AI_MOCK=0` (default for the demo), else
-`MockAIService` (updated to the new models).
+### 6.1 Implemented — `ai_service/service.py` (`AIService`), contract v2 (branch `feat/ai-service`)
+Team decision: **one united call** made after the official confirmed the case (the case already has its
+SQLite id), no separate indexing call, no progress callback. Usage and fields: README "AI service".
 
-### 6.2 Protocol methods (new / changed)
+| Method | Input → Output |
+|--------|----------------|
+| `analyze_request` | `AnalyzeInput{case_id, filename + data \| text}` → `AnalyzeResult{case_id, text, parse_method, summary, subject, applicant, letter_date, questions[{text, departments}], suggested_departments, similar_cases[{case_id, score, matches[]}], triage{kind, duplicate_case_ids, competent_body_id, reason}, warnings}` |
+| `delete_case` | `case_id` → — |
+| `health` | → `Health` |
+
+- Steps: parse → `RequestAnalyzer` (one LLM call: questions, summary, subject, applicant, letter date) →
+  embed → similar-case search (case itself excluded) → routing (one LLM call; also on the duplicate path, so
+  "continue full pipeline" needs no extra call) → triage → upsert the case's questions under `case_id`.
+- Failures of LLM / embedder / Qdrant → partial result + `warnings`; unreadable file →
+  `contracts.protocol.DocumentReadError`. Qdrant is connected lazily (app starts without it).
+- Changes vs. the draft below: `questions` is `[{text, departments}]` instead of two parallel lists;
+  `similar_cases` carry only `case_id` + scores + matches (number, topic, dates, reply come from SQLite);
+  `triage.duplicate_case_ids` is a list (the app picks the first one that has a reply);
+  `competent_body_id` stays `None` until `external_bodies.json` exists (§4.1).
+- `factory.get_ai_service(mock=None)`: `AI_MOCK=1` → `MockAIService` (canned, no models); `.env.example` now
+  has `AI_MOCK=0`.
+
+### 6.2 Still to add to the protocol (Part 2)
 
 | Method | Input → Output | Notes |
 |--------|----------------|-------|
-| `extract_text` | `filename, data: bytes` → `ParsedText{text, method}` | app may not import `ai_service.parsing` |
-| `analyze_request` | `AnalyzeInput{text, received_date?}` → `AnalyzeResult` | runs before the case exists (no `case_id`) |
-| `index_case` | `case_id: int, questions: list[str]` → `int` | after saving; reuses the analyzed questions (no 2nd LLM call) |
-| `delete_case` | `case_id: int` | |
 | `draft_response` | `DraftInput` → `DraftResult` | all three paths, `kind` selects |
 | `draft_inquiries` (P1) | `questions, department codes` → `{code: text}` | |
-| `health` | → `Health` | unchanged |
-
-`AnalyzeResult` v2 (additions in **bold**):
-`summary`, **`subject`** (noun phrase for "w zakresie informacji dotyczących …"), **`applicant`**,
-**`letter_date`** (date written on the request, if any), **`questions: list[str]`**,
-**`question_departments: list[list[str]]`**, `suggested_departments`, `similar_cases[]`
-(`case_id: int` — was `str`; `score` = dense coverage 0–1; **`document_number`**, **`has_reply`**,
-**`matches`**), **`triage: Triage{kind: STANDARD | DUPLICATE | OUT_OF_SCOPE, duplicate_case_id,
-competent_body_id, reason}`**.
 
 `DraftInput{kind, questions, case_number, applicant, date, department_replies[], archived_reply_text?,
 competent_body_id?, subject}` → `DraftResult{letter_text, body, values_to_verify, unanswered, notes,
 period_differs}`.
 
 Archived files live on the app side (`storage/files`); the app reads the archived reply text from the case's
-`FileData` via `extract_text` and passes it in — `ai_service` never imports `app/`.
+`FileData` and passes it in — `ai_service` never imports `app/`.
 
 ### 6.3 LLM calls and quota
 Per uploaded request: OCR (scans only) + **one analysis call** + routing (not on fast path 1) + one draft call

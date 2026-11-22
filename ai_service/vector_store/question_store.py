@@ -11,6 +11,7 @@ Usage:
     hits[0].case_id, hits[0].score, hits[0].matches
 """
 
+import math
 import uuid
 from collections.abc import Sequence
 from typing import Any
@@ -124,8 +125,10 @@ class QuestionStore:
         )
         best: dict[int, float] = {}
         matches: dict[int, list[MatchedQuestion]] = {}
-        for q in queries:
+        question_scores: dict[int, list[float]] = {}
+        for qi, q in enumerate(queries):
             self._check_dense(q.dense)
+            query_unit = _unit(q.dense)
             if q.sparse is not None:
                 kwargs = {
                     "prefetch": [
@@ -143,12 +146,15 @@ class QuestionStore:
                 group_size=matches_per_case,
                 query_filter=query_filter,
                 with_payload=True,
+                with_vectors=[DENSE],  # stored dense vectors are unit-normalized (cosine) -> exact cosine below
                 **kwargs,
             )
             for group in result.groups:
                 case_id = int(group.id)
+                scores = question_scores.setdefault(case_id, [0.0] * len(queries))
                 for hit in group.hits:
                     payload = hit.payload or {}
+                    dense_score = _cosine(query_unit, hit.vector)
                     matches.setdefault(case_id, []).append(
                         MatchedQuestion(
                             query=q.question,
@@ -158,9 +164,12 @@ class QuestionStore:
                             archived_case_id=case_id,
                             archived_query_id=payload.get("query_id"),
                             file_id=payload.get("file_id"),
+                            dense_score=dense_score,
                         )
                     )
                     best[case_id] = max(best.get(case_id, float("-inf")), hit.score)
+                    if dense_score is not None:
+                        scores[qi] = max(scores[qi], dense_score)
 
         ranked = sorted(best, key=best.__getitem__, reverse=True)[:limit]
         return [
@@ -168,6 +177,7 @@ class QuestionStore:
                 case_id=cid,
                 score=best[cid],
                 matches=sorted(matches[cid], key=lambda m: m.score, reverse=True)[:matches_per_case],
+                question_scores=question_scores[cid],
             )
             for cid in ranked
         ]
@@ -197,6 +207,19 @@ class QuestionStore:
     def _check_dense(self, dense: Sequence[float]) -> None:
         if len(dense) != self.dense_size:
             raise ValueError(f"Dense vector has {len(dense)} dimensions, expected {self.dense_size}.")
+
+
+def _unit(vector: Sequence[float]) -> list[float]:
+    norm = math.sqrt(sum(x * x for x in vector))
+    return [x / norm for x in vector] if norm else list(vector)
+
+
+def _cosine(query_unit: Sequence[float], stored: Any) -> float | None:
+    """Cosine between the normalized query and a stored dense vector (Qdrant normalizes cosine vectors)."""
+    vector = stored.get(DENSE) if isinstance(stored, dict) else None
+    if not vector:
+        return None
+    return sum(a * b for a, b in zip(query_unit, _unit(vector), strict=True))
 
 
 def _sparse(v: SparseVector) -> models.SparseVector:

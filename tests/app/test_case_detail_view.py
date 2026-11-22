@@ -2,7 +2,6 @@ import io
 from datetime import date
 
 import docx
-
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine

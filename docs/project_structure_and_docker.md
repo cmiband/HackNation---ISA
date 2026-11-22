@@ -83,13 +83,14 @@ HackNation---ISA/
 │
 ├── ai_service/               # SUBTEAM B — everything behind AIServiceProtocol
 │   ├── __init__.py
-│   ├── factory.py            # get_ai_service(settings) → AIService | MockAIService
-│   ├── service.py            # AIService: implements AIServiceProtocol, wires modules below
+│   ├── factory.py            # get_ai_service(mock=None) → AIService | MockAIService (AI_MOCK=1)
+│   ├── service.py            # AIService: analyze_request = parse → analyze → search → route → triage → index
 │   ├── mock.py               # MockAIService: canned data, AI_MOCK=1
 │   ├── llm/
 │   │   ├── config.py         # LLMSettings from env (LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL, LLM_API_KEY)
 │   │   ├── model_factory.py  # Pydantic AI model: "<provider>:<model>" or OpenAI-compatible base URL
-│   │   ├── schemas.py        # structured outputs (RequestQuestions)
+│   │   ├── schemas.py        # structured outputs (RequestQuestions, RequestSummary, RequestAnalysis)
+│   │   ├── analysis.py       # RequestAnalyzer: one call → questions + summary + subject + applicant + date
 │   │   ├── question_extraction.py  # QuestionExtractor: request text → self-contained questions
 │   │   ├── summarization.py  # RequestSummarizer: whole request → short description (≤ 300 chars)
 │   │   ├── ocr.py            # LLMOcr: scanned PDF → text via multimodal LLM

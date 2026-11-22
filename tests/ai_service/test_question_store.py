@@ -100,3 +100,12 @@ def test_from_env_uses_local_mode_without_url(tmp_path, monkeypatch):
     assert settings.url is None and settings.dense_size == 3
     store = QuestionStore.from_env(settings)
     assert store.healthy() and store.count_points() == 0
+
+
+def test_dense_cosine_scores_per_match_and_per_query_question(store):
+    hits = store.search_similar_cases([qv("uczniowie", [2, 0, 0], [10]), qv("śmieci", [0, 1, 0])], limit=3)
+    by_case = {h.case_id: h for h in hits}
+    assert by_case[1].question_scores[0] == pytest.approx(1.0)  # query is normalized before the cosine
+    assert by_case[2].question_scores == pytest.approx([0.0, 1.0])  # case 2 is not found for question 1
+    match = next(m for m in by_case[1].matches if m.archived == "liczba uczniów w szkołach")
+    assert match.dense_score == pytest.approx(1.0)
