@@ -9,14 +9,12 @@ from app.config import settings
 connect_args = {"check_same_thread": False}
 engine = create_engine(settings.DATABASE_URL, echo=False, connect_args=connect_args)
 
-
 def get_session():
     with Session(engine) as session:
         yield session
 
 
-
-def init_db() -> None:
+def init_db(db_engine: Engine | None = None) -> None:
     """Create all tables, seed departments and the archived cases if their tables are empty. Idempotent."""
     # Local imports: models must be registered on SQLModel.metadata before create_all.
     from app.db import models  # noqa: F401

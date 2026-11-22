@@ -15,19 +15,12 @@ def _init_db_once() -> bool:
     return True
 
 
-@st.cache_resource
-def _ensure_db_initialized() -> bool:
-    init_db()
-    return True
-
-
 st.set_page_config(
     page_title="Intelligent Assistant (UDIP) - Bydgoszcz",
     page_icon="🏛️",
     layout="wide",
 )
 
-_ensure_db_initialized()
 _init_db_once()
 
 st.markdown(
