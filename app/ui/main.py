@@ -22,18 +22,6 @@ st.set_page_config(
 
 _init_db_once()
 
-with Session(engine) as session:
-    cases = session.exec(select(Case).order_by(Case.id)).all()
-    rows = [
-        {
-            **c.model_dump(),
-            "application": c.application.filename,
-            "response": c.response.filename if c.response else None,
-        }
-        for c in cases
-    ]
-    st.dataframe(rows, hide_index=True, use_container_width=True)
-
 st.markdown(
     """
     <style>
