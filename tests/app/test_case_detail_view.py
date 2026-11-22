@@ -15,7 +15,6 @@ from app.ui.views.case_detail import (
     docx_to_html,
     load_case_detail,
     load_department_requests,
-    pdf_iframe_html,
     request_row_controls,
     resolve_application_path,
 )
@@ -111,13 +110,6 @@ def test_resolve_application_path(tmp_path):
     # Directory components are dropped, so the lookup stays inside applications_dir.
     assert resolve_application_path("../a.pdf", tmp_path) == tmp_path / "a.pdf"
     assert resolve_application_path("", tmp_path) is None
-
-
-def test_pdf_iframe_html_embeds_base64_pdf():
-    html = pdf_iframe_html(b"%PDF-1.4", height=500)
-
-    assert 'src="data:application/pdf;base64,JVBERi0xLjQ="' in html
-    assert 'height="500"' in html
 
 
 def _docx_bytes() -> bytes:

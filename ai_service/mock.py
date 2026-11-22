@@ -14,6 +14,11 @@ from contracts.models import (
     Triage,
 )
 
+MOCK_WARNING = (
+    "TRYB DEMONSTRACYJNY (AI_MOCK=1): to przykładowy wynik, a nie analiza tego wniosku. "
+    "Ustaw AI_MOCK=0 w pliku .env i uruchom aplikację ponownie."
+)
+
 
 class MockAIService:
     def analyze_request(self, input_data: AnalyzeInput) -> AnalyzeResult:
@@ -43,6 +48,7 @@ class MockAIService:
                     ],
                 )
             ],
+            warnings=[MOCK_WARNING],
             triage=Triage(
                 kind=TriageKind.DUPLICATE,
                 duplicate_case_ids=[1],
@@ -63,6 +69,7 @@ class MockAIService:
             values_to_verify=["2024/2025", "21 437", "[brak odpowiedzi komórki merytorycznej]"],
             unanswered_questions=[2] if len(input_data.questions) > 1 else [],
             notes="(mock) Brak danych o cudzoziemcach w przekazanych dokumentach.",
+            warnings=[MOCK_WARNING],
         )
 
     def extract_text(self, document: DocumentInput) -> str:

@@ -2,6 +2,7 @@ import streamlit as st
 
 from app.config import settings
 from app.db.engine import check_db_connection, init_db
+from app.ui.services import get_cached_ai_service
 from app.ui.views import anonymize, dashboard, upload
 
 
@@ -19,6 +20,13 @@ st.set_page_config(
 )
 
 _init_db_once()
+
+if get_cached_ai_service().health().llm_provider == "mock":
+    st.warning(
+        "**Tryb demonstracyjny (AI_MOCK=1):** wyniki analizy i projekty odpowiedzi są przykładowe, a nie "
+        "wygenerowane dla wgranych wniosków. Ustaw `AI_MOCK=0` w pliku `.env` i uruchom aplikację ponownie.",
+        icon="⚠️",
+    )
 
 st.markdown(
     """

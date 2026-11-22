@@ -4,6 +4,37 @@ Intelligent Assistant for Public Officials — a request calendar, triage and re
 requests for access to public information (UDIP) at the Bydgoszcz City Hall. Built as an MVP during the
 Hacknation 24 h hackathon.
 
+## Quick start — from `git clone` to the app
+
+Requirements: Git, Docker Engine with Docker Compose v2 (`docker compose version`), about 6 GB free disk space
+(the app image is ~4.5 GB), internet access (first build and the LLM API), free ports 8501 and 6333.
+
+```bash
+git clone https://github.com/cmiband/HackNation---ISA.git
+cd HackNation---ISA
+cp .env.example .env          # ready to use: Gemini API key for the evaluation, AI_MOCK=0 (real AI)
+docker compose up --build     # first build takes several minutes (PyTorch, spaCy, embedding model)
+```
+
+When the log shows `[bootstrap] Launching Streamlit application...`, open **http://localhost:8501**. The archive
+(9 sample request/reply pairs) is loaded into the database and the vector index automatically on start.
+
+- Stop: `Ctrl+C` (or `docker compose down`). Start again later: `docker compose up` (no rebuild needed).
+- Reset to the initial demo state: `docker compose down -v`, delete everything in `storage/` except `.gitkeep`,
+  then `docker compose up`.
+- How to use the app: see [Using the app](#using-the-app-officials-flow-polish-ui) below.
+
+Without Docker for the app (needs [uv](https://docs.astral.sh/uv/); Qdrant still runs in Docker; the first run
+downloads the embedding model, ~0.5 GB):
+
+```bash
+uv sync
+cp .env.example .env
+docker compose up -d qdrant
+uv run --env-file .env python scripts/seed_all.py
+uv run --env-file .env streamlit run app/ui/main.py   # http://localhost:8501
+```
+
 ## Documentation
 
 | Document | Content |
@@ -325,6 +356,11 @@ archive cases (e.g. after a prompt change) — commit the updated `analysis.json
    proposed, deselect or add fragments, approve → black) → download `.docx` / `.txt` and *Zapisz odpowiedź w
    sprawie* (status: Odpowiedź przygotowana) → *Oznacz: odpowiedź wysłana*.
 5. **Anonimizacja** tab — anonymize any document without a case.
+
+`AI_MOCK=1` in `.env` = demo mode: every analysis / draft is the same canned example (a warning banner is shown).
+Use `AI_MOCK=0` for real analysis. Cases analyzed in demo mode can be re-analyzed with **Analizuj ponownie**
+(status Processed; replaces the analysis and the not-yet-sent suggestions, removes the draft). PDF previews use
+the `streamlit[pdf]` viewer (no data-URL iframe, which browsers tend to download).
 
 ## Running with Docker
 
