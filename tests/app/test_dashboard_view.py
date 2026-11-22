@@ -190,3 +190,21 @@ def test_select_dashboard_rows_top_10_by_deadline_and_show_all():
     assert len(all_df) == 14
     assert all_ids == case_ids
     assert all_df.iloc[0]["Topic"] == "Archived 1"
+
+
+def test_year_filter_and_case_years():
+    from app.ui.views.dashboard import case_years
+
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        repo = CaseRepository(session)
+        for received in (date(2025, 6, 1), date(2026, 1, 5), date(2026, 3, 2)):
+            repo.add_with_application(
+                Case(created_date=received, response_deadline=received, status=CaseStatus.NEW),
+                FileData(filename=f"{received}.pdf", file_type=FileType.APPLICATION),
+            )
+        assert case_years(repo.get_all_cases()) == [2026, 2025]
+        ids_2026, df_2026 = load_dashboard_data(session=session, year=2026)
+        assert len(ids_2026) == 2 and len(df_2026) == 2
+        assert len(load_dashboard_data(session=session)[0]) == 3

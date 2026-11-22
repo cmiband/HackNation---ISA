@@ -184,7 +184,13 @@ Use one DB connection/session per thread or Streamlit session.
 - `CaseHistoryRepository`: `add`.
 - Repositories do no business logic, except `CaseRepository.update`, which writes a `CaseHistory.snapshot` in the same commit as the change. `app/services/registry.py` handles the remaining rules (status transitions).
 
-### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested)
+### 5.3 Deadline Engine (`app/services/deadlines.py`, deterministic, unit-tested) — **implemented**
+- `response_deadline(received)` = received + 14 days, `query_deadline(received)` = received + 2 months, both moved
+  to the next working day (Sat/Sun/Polish holiday from the `holidays` package, incl. 24 December);
+  `urgency(deadline, today, done)` → overdue / today / tomorrow / soon (≤ 3 days) / ok / done.
+- Used by the upload (new case deadline) and the Query form (suggested extended deadline, editable). The
+  dashboard has a year filter (year of receipt, default: current year, or all years).
+- Team decision: the weekend/holiday shift (KPA art. 57 § 4) is applied; still worth confirming with mentors.
 - `deadline = received_date + 14 days` (art. 13 ust. 1 UDIP; the day of receipt is not counted).
 - Extension (`QUERY_EXTENDED`): the applicant must be notified before the 14-day deadline; new deadline at most `received_date + 2 months` (art. 13 ust. 2 UDIP). Track both "notify by" and "respond by".
 - Deadline on a Saturday or public holiday → next working day (KPA art. 57 §4). **Confirm with UMB mentors.**

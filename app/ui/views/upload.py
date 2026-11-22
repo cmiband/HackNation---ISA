@@ -5,7 +5,7 @@ All files uploaded here are treated as incoming Applications and saved to `stora
 
 from collections.abc import Callable, Sequence
 from contextlib import ExitStack
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -15,12 +15,10 @@ from sqlmodel import Session
 from app.db.engine import engine
 from app.db.models import Case, FileData
 from app.db.repository import CaseRepository
+from app.services.deadlines import response_deadline
 from app.services.file_storage import save_uploaded_file
 from app.ui.current_user import get_current_user_id
 from contracts.enums import CaseStatus, FileType
-
-# Default response deadline (UDIP); real calculation lives in app/services/deadlines.py (not yet implemented).
-RESPONSE_DEADLINE_DAYS = 14
 
 # Legacy .doc is not supported by the parser (python-docx reads only .docx).
 ALLOWED_EXTENSIONS = ["pdf", "docx"]
@@ -105,7 +103,7 @@ def load_files(
                 cases.add_with_application(
                     Case(
                         created_date=today,
-                        response_deadline=today + timedelta(days=RESPONSE_DEADLINE_DAYS),
+                        response_deadline=response_deadline(today),
                         status=CaseStatus.NEW,
                         assignee_id=assignee_id,
                     ),

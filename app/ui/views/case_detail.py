@@ -24,6 +24,7 @@ from app.db.repository import (
     DepartmentRequestRepository,
     FileDataRepository,
 )
+from app.services.deadlines import query_deadline
 from app.services.registry import (
     advance_case_status,
     complete_department_request,
@@ -86,6 +87,7 @@ class CaseDetail:
     deadline: date
     status: CaseStatus
     file_path: Path | None  # application file on disk; None when it is missing
+    received: date | None = None  # Case.created_date (date of receipt)
 
 
 def resolve_application_path(filename: str, applications_dir: Path | None = None) -> Path | None:
@@ -120,6 +122,7 @@ def load_case_detail(
             deadline=case.response_deadline,
             status=case.status,
             file_path=resolve_application_path(filename, applications_dir) if filename else None,
+            received=case.created_date,
         )
 
 
@@ -413,8 +416,10 @@ def render_query_form(detail: CaseDetail) -> None:
     if st.session_state.get(_QUERY_FORM_KEY) != detail.case_id or detail.status != CaseStatus.REQUEST_SENT:
         return
     date_col, confirm_col, cancel_col = st.columns([3, 1, 1], vertical_alignment="bottom")
+    # Suggest the latest extended deadline: received + 2 months, next working day (art. 13 ust. 2 UDIP).
+    suggested = query_deadline(detail.received) if detail.received else detail.deadline
     new_deadline = date_col.date_input(
-        "New deadline", value=detail.deadline, format="YYYY-MM-DD", key="case_detail_query_deadline"
+        "New deadline", value=suggested, format="YYYY-MM-DD", key="case_detail_query_deadline"
     )
     if confirm_col.button("Confirm", key="case_detail_query_confirm", type="primary", width="stretch"):
         try:

@@ -18,6 +18,7 @@ dependencies = [
     "sentence-transformers>=6.3.0",
     "presidio-analyzer>=2.2.366",
     "pl-core-news-md",
+    "holidays>=0.109",
 ]
 
 [dependency-groups]

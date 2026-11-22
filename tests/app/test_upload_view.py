@@ -1,10 +1,10 @@
-from datetime import timedelta
 from types import SimpleNamespace
 
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.models import Case, User
+from app.services.deadlines import response_deadline
 from app.ui.views.upload import ALLOWED_EXTENSIONS, format_size, load_files, split_files, summarize
 from contracts.enums import CaseStatus, FileType
 
@@ -67,7 +67,7 @@ def test_load_files_saves_all_as_applications(tmp_path):
         assert [c.application.filename for c in cases] == ["a.pdf", "b.docx"]
         assert all(c.application.file_type == FileType.APPLICATION for c in cases)
         assert all(c.status == CaseStatus.NEW for c in cases)
-        assert all(c.response_deadline - c.created_date == timedelta(days=14) for c in cases)
+        assert all(c.response_deadline == response_deadline(c.created_date) for c in cases)
     assert saved == [apps_dir / "a.pdf", apps_dir / "b.docx"]
     assert saved[0].read_bytes() == b"pdf"
     assert saved[1].read_bytes() == b"docx"
