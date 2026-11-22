@@ -362,6 +362,17 @@ similar cases (score, case number, topic, matched questions) → suggested depar
 `departments.json`) → editable metadata (case number, applicant, topic, received date, deadline from
 `deadlines.py`, initials) → **Save** → `index_case(case.id, questions)` → case view.
 
+### 8.3a Implemented — case popup (`views/case_detail.py`, `case_analysis.py`, `case_response.py`)
+Polish UI. Sections: registry data form (number suggested at upload, date of receipt, deadline with optional
+recalculation, initials, topic → `update_case_metadata`); analysis (summary, questions with units or the
+external body, similar cases with number/topic/score/reply/matched questions, warnings) from
+`Case.analysis_json` via `app/services/case_view.py`; shortcut banner in status Processed ("Akceptuj skrót" →
+draft now; "Kontynuuj standardowo" hides it; DUPLICATE without any archived reply falls back to standard);
+department requests (one per unit); department reply files (any number, `storage/files/department_replies/`);
+"Generuj projekt odpowiedzi" (Request_Sent / Query: replies + archived reply of a similar case if any); draft
+editor (highlighted values, unanswered questions, notes, edit + save → `Case.draft_json`). Logic:
+`app/services/case_response.py`.
+
 ### 8.4 Case view (`views/case.py`) and registry (`app/services/registry.py`)
 - Metadata edit, status changes with allowed transitions + `CaseHistory` (already in `CaseRepository.update`),
   history list.

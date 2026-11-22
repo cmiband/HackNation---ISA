@@ -20,11 +20,16 @@ class Settings(BaseSettings):
     def responses_dir(self) -> Path:
         return self.FILES_DIR / "responses"
 
+    @property
+    def department_replies_dir(self) -> Path:
+        return self.FILES_DIR / "department_replies"
+
     def ensure_directories(self) -> None:
         self.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
         self.FILES_DIR.mkdir(parents=True, exist_ok=True)
         self.applications_dir.mkdir(parents=True, exist_ok=True)
         self.responses_dir.mkdir(parents=True, exist_ok=True)
+        self.department_replies_dir.mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()
