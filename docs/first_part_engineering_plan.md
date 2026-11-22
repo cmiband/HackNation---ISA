@@ -175,6 +175,7 @@ Use one DB connection/session per thread or Streamlit session.
 - `DepartmentRepository`: `add`, `get_by_id`, `load_departments`.
   - `load_departments()` seeds the `department` table from `data/departments.json` (`code`, `name`, `responsibilities`; other fields ignored), but only when the table is empty.
 - `app/db/engine.py::init_db()` creates all tables (`SQLModel.metadata.create_all`) and calls `load_departments()` and `app/services/archive_loader.py::load_archive_if_empty()` (loads application/response pairs from `storage/files/{applications,responses}` as archived `Response_Sent` cases owned by user `AL`, only when the `case` table is empty; manual rerun: `scripts/archive_loader.py`). It is idempotent. `app.bootstrap` also calls it before launching Streamlit. `app/ui/main.py` calls it once per process through `st.cache_resource`, so both Docker and native runs set up the DB on start.
+  - Archive load does nothing when `applications/` has no files. **TODO (Subteam B):** `load_archive()` only writes the relational DB (`User`, `FileData`, `Case`); the archived application/response files must also be indexed into the vector database (`QuestionStore`, `ai_service/vector_store/`) so similar-case search can find them. Marked in `app/services/archive_loader.py`.
 - `FileDataRepository`: `add`, `add_all`, `get_by_id`.
 - `DepartmentRequestRepository`: `add`, `update`, `get_by_id`, `get_dep_requests_by_case_id`.
 - `CaseHistoryRepository`: `add`.

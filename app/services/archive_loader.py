@@ -52,6 +52,9 @@ def get_or_create_loader_user(session: Session) -> User:
 
 def load_archive(session: Session, applications_dir: Path, responses_dir: Path) -> tuple[int, int]:
     """Returns (cases created, files skipped). Does nothing if `applications_dir` has no files."""
+    # TODO (AI subteam): the archived application/response files must also be loaded into the vector
+    # database (QuestionStore, see ai_service/vector_store/) so similar-case search can find them.
+    # Currently this function only writes the relational DB (User, FileData, Case).
     if not applications_dir.is_dir() or not any(p.is_file() for p in applications_dir.iterdir()):
         print(f"archive load skipped: no files in {applications_dir}")
         return 0, 0
