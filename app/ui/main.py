@@ -1,11 +1,8 @@
 import streamlit as st
-from sqlmodel import Session, select
-from app.db.models import Case
+
 from app.config import settings
 from app.db.engine import check_db_connection, init_db
 from app.ui.views import dashboard, upload
-from app.ui.views import upload
-from app.db.engine import engine
 
 
 @st.cache_resource
