@@ -53,6 +53,15 @@ def _overlaps(a: RecognizerResult, b: RecognizerResult) -> bool:
     return a.start < b.end and b.start < a.end
 
 
+# Legal-form markers of companies and organisations, searched in a PERSON span and right after it.
+_LEGAL_FORM = re.compile(
+    r"(?:\bsp\.\s*z\s*o\.\s*o\.|\bs\.\s*a\.|\bsp\.\s*[jkp]\.|\bsp\.\s*k\.\s*a\.|\bspółk|\bspółdzielni"
+    r"|\bfundacj|\bstowarzysze)",
+    re.IGNORECASE,
+)
+_LEGAL_FORM_LOOKAHEAD = 20
+
+
 class Anonymizer:
     """Thread-safe after construction; build once (loading spaCy takes a few seconds) and share."""
 
@@ -113,6 +122,9 @@ class Anonymizer:
             domain = normalized.rsplit("@", 1)[-1]
             return any(domain == d or domain.endswith("." + d) for d in self.config.official_email_domains)
         if result.entity_type == Entity.PERSON:
+            # company / organisation names are not personal data: "Drogbud S.A.", "Komunalnik Sp. z o.o."
+            if _LEGAL_FORM.search(text[result.start : result.end + _LEGAL_FORM_LOOKAHEAD]):
+                return True
             words = normalized.split()
             return any(
                 all(any(_same_word(w, o) for o in official) for w in words) for official in self._officials

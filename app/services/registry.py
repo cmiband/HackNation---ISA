@@ -197,6 +197,33 @@ def _requests_per_department(db: Session, result: AnalyzeResult) -> dict[int, st
     return {department_id: "\n".join(items) for department_id, items in lines.items()}
 
 
+def add_department_request(
+    case_id: int, department_id: int, request_text: str, *, session: Session | None = None
+) -> DepartmentRequest:
+    """Add a request to a unit chosen by the official (e.g. when the analysis suggested none)."""
+    text = request_text.strip()
+    if not text:
+        raise ValueError("Podaj treść zapytania (pytania do jednostki).")
+    with ExitStack() as stack:
+        db = session if session is not None else stack.enter_context(Session(engine))
+        if CaseRepository(db).get_case_by_id(case_id) is None:
+            raise LookupError(f"Case {case_id} does not exist.")
+        if DepartmentRepository(db).get_by_id(department_id) is None:
+            raise LookupError(f"Department {department_id} does not exist.")
+        request = DepartmentRequest(
+            case_id=case_id, department_id=department_id, request_status=RequestStatus.SUGGESTED, request_text=text
+        )
+        return DepartmentRequestRepository(db).add(request)
+
+
+def numbered_questions(case: Case) -> str:
+    """'1. …\n2. …' — all questions of the analysis (default text of a manually added request)."""
+    analysis = load_analysis(case)
+    if analysis is None:
+        return ""
+    return "\n".join(f"{i}. {q.text}" for i, q in enumerate(analysis.questions, start=1))
+
+
 def load_analysis(case: Case) -> AnalyzeResult | None:
     """The stored analysis of a case (None if it was not analyzed yet)."""
     return AnalyzeResult.model_validate_json(case.analysis_json) if case.analysis_json else None

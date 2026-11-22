@@ -308,6 +308,24 @@ Native runs: `uv run --env-file .env python scripts/seed_all.py` (Qdrant must be
 dropped into `storage/files/` is analyzed once with the LLM and added to the cache; `--refresh` re-analyzes all
 archive cases (e.g. after a prompt change) — commit the updated `analysis.json`.
 
+## Using the app (official's flow, Polish UI)
+
+1. **Dodaj wnioski** — upload request files (PDF / DOCX). Each becomes a case with a suggested number
+   (`BKS.IV.1431.<n>.<year>`), date of receipt = today and the deadline (14 days, next working day).
+2. **Rejestr** — the calendar table: oldest → newest, year filter, deadline highlighting, case number,
+   status, initials. 🔍 opens the case.
+3. In the case: check / edit the registry data, then **Wykonaj analizę** (summary, questions with units,
+   similar archived cases, proposed path).
+   - **Znaleziono to samo pytanie** / **Poza właściwością Urzędu** → *Akceptuj skrót*: the draft is ready now
+     (reply of the earlier case adapted / redirect letter); *Kontynuuj standardowo* → normal path.
+   - Normal path: department requests (one per unit; add one by hand if needed) → *Oznacz: zapytania wysłane*
+     → (optional *Kwerenda*: new deadline, suggested received + 2 months) → upload the units' replies →
+     *Generuj projekt odpowiedzi*.
+4. Edit the draft (yellow = values to check, missing answers listed) → **anonymization review** (gray =
+   proposed, deselect or add fragments, approve → black) → download `.docx` / `.txt` and *Zapisz odpowiedź w
+   sprawie* (status: Odpowiedź przygotowana) → *Oznacz: odpowiedź wysłana*.
+5. **Anonimizacja** tab — anonymize any document without a case.
+
 ## Running with Docker
 
 ```bash

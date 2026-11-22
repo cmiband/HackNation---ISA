@@ -78,3 +78,13 @@ def test_redact_replaces_longest_key_first():
     mapping = {"Jan": "[PERSON_1]", "Jan Kowalski": "[PERSON_2]"}
     assert redact("Jan Kowalski i Jan", mapping) == "[PERSON_2] i [PERSON_1]"
     assert redact("tekst", {}) == "tekst"
+
+
+def test_company_names_are_not_personal_data(anonymizer):
+    text = (
+        "Usługi wykonywały firmy: Komunalnik Sp. z o.o. oraz Drogbud S.A. na podstawie umów. "
+        "Wniosek złożył Jan Kowalski."
+    )
+    mapping = anonymizer.anonymize(text)
+    assert not any("Komunalnik" in k or "Drogbud" in k for k in mapping)
+    assert "Jan Kowalski" in mapping
