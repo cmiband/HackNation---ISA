@@ -174,7 +174,7 @@ Use one DB connection/session per thread or Streamlit session.
   - Do not call `FileDataRepository.add(application)` before creating the case. It commits on its own, which breaks the single transaction.
 - `DepartmentRepository`: `add`, `get_by_id`, `load_departments`.
   - `load_departments()` seeds the `department` table from `data/departments.json` (`code`, `name`, `responsibilities`; other fields ignored), but only when the table is empty.
-- `app/db/engine.py::init_db()` creates all tables (`SQLModel.metadata.create_all`) and calls `load_departments()` and `app/services/archive_loader.py::load_archive_if_empty()` (loads application/response pairs from `storage/files/{applications,responses}` as archived `Response_Sent` cases owned by user `AL`, only when the `case` table is empty; manual rerun: `scripts/archive_loader.py`). It is idempotent. `app.bootstrap` also calls it before launching Streamlit. `app/ui/main.py` calls it once per process through `st.cache_resource`, so both Docker and native runs set up the DB on start.
+- `app/db/engine.py::init_db()` creates all tables (`SQLModel.metadata.create_all`) and calls `load_departments()` and `app/services/archive_loader.py::load_archive_if_empty()` (loads application/response pairs from `storage/files/{applications,responses}` as archived `Response_Sent` cases owned by user `AL`, only when the `case` table is empty; manual rerun: `scripts/archive_loader.py`), then seeds the hardcoded current user (`test testowski`, initials `tt`; `app/services/current_user.py::get_or_create_current_user`, created only if no user with initials `tt` exists). It is idempotent. `app.bootstrap` also calls it before launching Streamlit. `app/ui/main.py` calls it once per process through `st.cache_resource`, so both Docker and native runs set up the DB on start.
   - Archive load does nothing when `applications/` has no files. **TODO (Subteam B):** `load_archive()` only writes the relational DB (`User`, `FileData`, `Case`); the archived application/response files must also be indexed into the vector database (`QuestionStore`, `ai_service/vector_store/`) so similar-case search can find them. Marked in `app/services/archive_loader.py`.
 - `FileDataRepository`: `add`, `add_all`, `get_by_id`.
 - `DepartmentRequestRepository`: `add`, `update`, `get_by_id`, `get_dep_requests_by_case_id`.
@@ -195,11 +195,24 @@ restricted to `.pdf` / `.docx` — wrong files are listed in a red error with th
 read-only summary table, accept/reject — all files are treated as Applications, accepting resets the UI, displays
 `st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard**
 (`views/dashboard.py`: full-width table querying SQLite via `CaseRepository.get_all_cases()` oldest → newest with
-columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline`, `Days to deadline`, `Reply date`, `Status`).
+columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline`, `Days to deadline`, `Reply date`, `Status` and a 🔍 button per row that opens the **case detail popup**).
+  - **Case detail popup (`app/ui/views/case_detail.py` → `show_case_detail(case_id)`):** `st.dialog` stretched to
+    ~95% of the window. Top left: application filename and deadline. Top right: one status-dependent button —
+    `New` → "Wykonaj analizę" (calls `app/services/registry.py::request_case_analysis`, a placeholder that returns
+    `False` until the AI analysis is wired), `Processed` → "Mark as Request Sent", `Request_Sent` → "Query",
+    `Response_Generated` → "Mark as Response Sent" (also sets `response_date`); `Query` / `Response_Sent` → no button.
+    The status buttons call `registry.advance_case_status` (`STATUS_TRANSITIONS`, writes a `CaseHistory` snapshot)
+    and rerun the app, which closes the popup and refreshes the table. "Close" button (and the dialog's ✕) closes it.
+    Below the header, the left ~60% shows a **PDF preview** of the application: `load_case_detail` fetches `FileData`
+    by `Case.application_id` (`FileDataRepository.get_by_id`) and resolves `settings.applications_dir / filename`
+    (base name only). Rendering uses `st.pdf` when the optional `streamlit[pdf]` extra is installed, otherwise a
+    base64 `data:application/pdf` `<iframe>`. Preview type follows the file extension: `.pdf` as above; `.docx` → `docx_to_html` (python-docx, document order:
+    headings, paragraphs with bold/italic/underline, tables; text HTML-escaped; no images/headers/footers) shown via
+    `st.html` in a scrollable box; other extensions → info message. Missing file → warning.
   - **DB integration (`app/ui/views/upload.py` → `load_files()`):** done. After `save_uploaded_file(...)` returns
     `saved_path`, `CaseRepository.add_with_application` persists `FileData` (`filename=saved_path.name` — reflects any
     `_1`/`_2` deduplication — and `FileType.APPLICATION`) and a `Case` (status `NEW`, `created_date=today`,
-    `response_deadline=today+14d` placeholder until `services/deadlines.py` exists). No history row on creation. Optional `session` arg (default: new `Session(engine)`) for tests.
+    `response_deadline=today+14d` placeholder until `services/deadlines.py` exists, `assignee_id` = current user id from `app/ui/current_user.py::get_current_user_id()`, cached with `st.cache_resource`). No history row on creation. Optional `session` arg (default: new `Session(engine)`) for tests.
 
 - **Calendar / Table** (`views/calendar.py`): requests oldest → newest, year filter, deadline highlighting, status, days remaining, initials, sequence number, request ID, topic summary, dates.
 - **Upload & Triage** (`views/intake.py`): upload (file is being parsed on the AI-side of the project) → `analyze_request` → show similar cases + suggested departments → official edits/confirms metadata → save.

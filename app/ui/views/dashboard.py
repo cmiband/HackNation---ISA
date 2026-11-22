@@ -11,6 +11,7 @@ from sqlmodel import Session
 from app.db.engine import engine
 from app.db.models import Case
 from app.db.repository import CaseRepository
+from app.ui.views.case_detail import show_case_detail
 from contracts.enums import CaseStatus
 
 DASHBOARD_COLUMNS = [
@@ -68,33 +69,50 @@ def load_dashboard_frame(
     today: date | None = None,
 ) -> pd.DataFrame:
     """Query all cases from SQLite (oldest → newest) and return the dashboard DataFrame."""
+    return load_dashboard_data(session=session, today=today)[1]
+
+
+def load_dashboard_data(
+    *,
+    session: Session | None = None,
+    today: date | None = None,
+) -> tuple[list[int], pd.DataFrame]:
+    """Return case ids (row order) and the dashboard DataFrame (oldest → newest)."""
     with ExitStack() as stack:
         db = session if session is not None else stack.enter_context(Session(engine))
         cases = CaseRepository(db).get_all_cases()
-        return build_dashboard_frame(cases, today=today)
+        case_ids = [case.id for case in cases if case.id is not None]
+        return case_ids, build_dashboard_frame(cases, today=today)
+
+
+# Relative column widths: data columns + the "Details" button column.
+_COLUMN_WEIGHTS = [0.5, 0.8, 4, 1.2, 1.2, 1.2, 1.2, 1.6, 0.8]
+
+
+def _format_cell(value: object) -> str:
+    if value is None or value is pd.NA or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    if isinstance(value, date):
+        return f"{value:%Y-%m-%d}"
+    return str(value)
 
 
 def render() -> None:
     st.subheader("📊 Case Dashboard")
-    df = load_dashboard_frame()
+    case_ids, df = load_dashboard_data()
     if df.empty:
         st.caption("No cases registered yet — upload applications in the Upload Request tab.")
-    else:
-        st.caption(f"Showing **{len(df)}** case(s), ordered oldest to newest.")
+        return
+    st.caption(f"Showing **{len(df)}** case(s), ordered oldest to newest.")
 
-    st.dataframe(
-        df,
-        hide_index=True,
-        width="stretch",
-        height=600,
-        column_config={
-            "#": st.column_config.NumberColumn("#", format="%d", width="small"),
-            "Initials": st.column_config.TextColumn("Initials", width="small"),
-            "Topic": st.column_config.TextColumn("Topic", width="large"),
-            "Upload date": st.column_config.DateColumn("Upload date", format="YYYY-MM-DD"),
-            "Deadline": st.column_config.DateColumn("Deadline", format="YYYY-MM-DD"),
-            "Days to deadline": st.column_config.NumberColumn("Days to deadline", format="%d"),
-            "Reply date": st.column_config.DateColumn("Reply date", format="YYYY-MM-DD"),
-            "Status": st.column_config.TextColumn("Status"),
-        },
-    )
+    header = st.columns(_COLUMN_WEIGHTS)
+    for col, name in zip(header, [*DASHBOARD_COLUMNS, ""], strict=True):
+        col.markdown(f"**{name}**")
+
+    with st.container(height=600, border=False):
+        for case_id, (_, row) in zip(case_ids, df.iterrows(), strict=True):
+            cols = st.columns(_COLUMN_WEIGHTS, vertical_alignment="center")
+            for col, name in zip(cols, DASHBOARD_COLUMNS, strict=False):
+                col.write(_format_cell(row[name]))
+            if cols[-1].button("🔍", key=f"case_details_{case_id}", help="Open case details"):
+                show_case_detail(case_id)

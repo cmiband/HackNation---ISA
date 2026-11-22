@@ -51,22 +51,31 @@ HackNation---ISA/
 │   ├── config.py             # settings from env (pydantic-settings)
 │   ├── bootstrap.py          # container entrypoint: seed if empty → exec streamlit
 │   ├── db/
-│   │   ├── engine.py         # SQLite engine/session (one connection per thread)
+│   │   ├── engine.py         # SQLite engine/session (one connection per thread); init_db() seeds departments,
+│   │   │                     #   archive cases (if empty) and the current user
 │   │   ├── models.py         # SQLModel tables (first_part_engineering_plan.md §5.1)
-│   │   └── repository.py     # one repository class per table (CRUD + queries; more queries by year, status, overdue to come)
+│   │   └── repository.py     # one repository class per table (Case, Department, FileData, DepartmentRequest,
+│   │                         #   CaseHistory, User: CRUD + queries; more by year, status, overdue to come)
 │   ├── services/
 │   │   ├── deadlines.py      # 14 days / 2 months / weekend+holiday shift, highlight level
+│   │   ├── archive_loader.py # archive application/response pairs → Response_Sent cases (user AL)
+│   │   ├── current_user.py   # hardcoded MVP current user (test testowski, initials tt): get_or_create
 │   │   ├── file_storage.py   # save uploaded files under storage/files/{applications,responses}/
-│   │   ├── registry.py       # case lifecycle, status transitions, audit log
+│   │   ├── registry.py       # STATUS_TRANSITIONS, advance_case_status (writes CaseHistory),
+│   │   │                     #   request_case_analysis (placeholder until AI analysis is wired)
 │   │   ├── exporter.py       # Part 2: final response → .docx / .txt
 │   │   └── ai.py             # get_ai() = st.cache_resource around ai_service.factory
 │   └── ui/
 │       ├── main.py           # entry: st.tabs navigation (System Status | Upload Request | Dashboard)
+│       ├── current_user.py   # get_current_user_id(): current user id cached with st.cache_resource
 │       ├── i18n.py           # Polish UI labels
 │       ├── components/       # status badges, deadline chips
 │       └── views/            # one render() per tab; NOT `pages/` (Streamlit would add its own sidebar nav)
-│           ├── dashboard.py      # implemented: full-width case table queried from SQLite (oldest → newest)
-│           ├── upload.py         # implemented: multi-file drag & drop (PDF/DOCX), summary, accept/reject
+│           ├── dashboard.py      # implemented: case table from SQLite (oldest → newest), 🔍 details button per row
+│           ├── case_detail.py    # implemented: case detail popup (st.dialog): filename, deadline, status button,
+│           │                     #   PDF / DOCX preview of the application file
+│           ├── upload.py         # implemented: multi-file drag & drop (PDF/DOCX), summary, accept/reject;
+│           │                     #   new cases assigned to the current user
 │           ├── calendar.py       # table + calendar, year filter, highlighting
 │           ├── intake.py         # upload → triage → verify → save
 │           ├── case.py           # case file: metadata, status, dept inquiries (Part 2 adds more)
@@ -132,6 +141,9 @@ HackNation---ISA/
 └── tests/
     ├── contracts/test_mock_conforms.py   # MockAIService & AIService satisfy the Protocol
     ├── app/test_deadlines.py
+    ├── app/test_archive_loader.py, test_case_repository.py, test_file_storage.py, test_init_db.py
+    ├── app/test_dashboard_view.py, test_upload_view.py, test_case_detail_view.py
+    ├── app/test_registry.py, test_current_user.py
     ├── ai_service/test_question_extraction.py
     ├── ai_service/test_parser.py
     └── ai_service/test_routing.py

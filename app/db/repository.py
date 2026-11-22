@@ -15,7 +15,7 @@ from pathlib import Path
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from app.db.models import Case, CaseHistory, Department, DepartmentRequest, FileData
+from app.db.models import Case, CaseHistory, Department, DepartmentRequest, FileData, User
 from contracts.enums import FileType
 
 DEPARTMENTS_JSON = Path(__file__).resolve().parents[2] / "data" / "departments.json"
@@ -199,6 +199,30 @@ class DepartmentRequestRepository:
             .order_by(DepartmentRequest.id)
         )
         return list(self.session.exec(statement).all())
+
+
+class UserRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, user: User) -> User:
+        self.session.add(user)
+        self.session.commit()
+        self.session.refresh(user)
+        return user
+
+    def get_by_id(self, user_id: int) -> User | None:
+        return self.session.get(User, user_id)
+
+    def get_by_initials(self, initials: str) -> User | None:
+        return self.session.exec(select(User).where(User.initials == initials)).first()
+
+    def get_or_create(self, *, first_name: str, last_name: str, initials: str) -> User:
+        """Return the user with ``initials``; insert it only if no such user exists."""
+        user = self.get_by_initials(initials)
+        if user is None:
+            user = self.add(User(first_name=first_name, last_name=last_name, initials=initials))
+        return user
 
 
 class CaseHistoryRepository:
