@@ -25,10 +25,51 @@ DASHBOARD_COLUMNS = [
     "Status",
 ]
 
+TOP_CASES_LIMIT = 10
+
+_DEADLINE_STYLES: dict[str, str] = {
+    "overdue": "background-color: #fca5a5; color: #7f1d1d; font-weight: 700;",
+    "today": "background-color: #fecaca; color: #991b1b; font-weight: 700;",
+    "tomorrow": "background-color: #fed7aa; color: #9a3412; font-weight: 600;",
+    "soon": "background-color: #fef08a; color: #854d0e; font-weight: 600;",
+}
+
 
 def empty_dashboard_frame() -> pd.DataFrame:
     """Return an empty DataFrame with the dashboard schema so column headers render cleanly."""
     return pd.DataFrame(columns=DASHBOARD_COLUMNS)
+
+
+def deadline_urgency(days_to_deadline: object) -> str | None:
+    """Classify deadline urgency from days remaining (`None` when replied or > 3 days away)."""
+    if days_to_deadline is None or days_to_deadline is pd.NA:
+        return None
+    if isinstance(days_to_deadline, float) and pd.isna(days_to_deadline):
+        return None
+    days = int(days_to_deadline)
+    if days < 0:
+        return "overdue"
+    if days == 0:
+        return "today"
+    if days == 1:
+        return "tomorrow"
+    if days <= 3:
+        return "soon"
+    return None
+
+
+def format_deadline_cell(deadline_value: object, days_to_deadline: object) -> tuple[str, bool]:
+    """Return `(content, is_html)` for the Deadline cell with urgency highlighting when applicable."""
+    text = _format_cell(deadline_value)
+    urgency = deadline_urgency(days_to_deadline)
+    if not text or urgency is None:
+        return text, False
+    style = _DEADLINE_STYLES[urgency]
+    html = (
+        f'<span style="display:inline-block;padding:2px 8px;border-radius:6px;{style}">'
+        f"{text}</span>"
+    )
+    return html, True
 
 
 def build_dashboard_frame(
@@ -63,6 +104,35 @@ def build_dashboard_frame(
     return df
 
 
+def select_dashboard_rows(
+    case_ids: Sequence[int],
+    df: pd.DataFrame,
+    *,
+    show_all: bool,
+    top_n: int = TOP_CASES_LIMIT,
+) -> tuple[list[int], pd.DataFrame]:
+    """Return all rows as-is when `show_all=True`, or top `top_n` ordered by nearest deadline.
+
+    Active (unreplied) cases are prioritized ahead of already-replied cases so archived
+    `Response_Sent` entries do not crowd out upcoming deadlines.
+    """
+    if show_all or df.empty:
+        return list(case_ids), df
+
+    order = sorted(
+        range(len(df)),
+        key=lambda i: (
+            pd.isna(df.iloc[i]["Days to deadline"]),
+            df.iloc[i]["Deadline"],
+            i,
+        ),
+    )[:top_n]
+    selected_ids = [case_ids[i] for i in order]
+    selected_df = df.iloc[order].copy().reset_index(drop=True)
+    selected_df["#"] = range(1, len(selected_df) + 1)
+    return selected_ids, selected_df
+
+
 def load_dashboard_frame(
     *,
     session: Session | None = None,
@@ -86,7 +156,7 @@ def load_dashboard_data(
 
 
 # Relative column widths: data columns + the "Details" button column.
-_COLUMN_WEIGHTS = [0.5, 0.8, 4, 1.2, 1.2, 1.2, 1.2, 1.6, 0.8]
+_COLUMN_WEIGHTS = [0.5, 0.8, 4, 1.2, 1.4, 1.2, 1.2, 1.6, 0.8]
 
 
 def _format_cell(value: object) -> str:
@@ -103,16 +173,38 @@ def render() -> None:
     if df.empty:
         st.caption("No cases registered yet — upload applications in the Upload Request tab.")
         return
-    st.caption(f"Showing **{len(df)}** case(s), ordered oldest to newest.")
+
+    total_cases = len(df)
+    ctrl_left, ctrl_right = st.columns([4, 1.2], vertical_alignment="center")
+    show_all = ctrl_right.toggle("Show all cases", value=False, key="dashboard_show_all")
+
+    visible_ids, visible_df = select_dashboard_rows(case_ids, df, show_all=show_all)
+    if show_all:
+        ctrl_left.caption(
+            f"Showing all **{total_cases}** case(s), ordered oldest to newest.  \n"
+            "Deadline highlight: 🔴 Overdue / Today · 🟠 Tomorrow · 🟡 Within 3 days"
+        )
+    else:
+        ctrl_left.caption(
+            f"Showing top **{len(visible_df)}** of **{total_cases}** case(s) by nearest deadline.  \n"
+            "Deadline highlight: 🔴 Overdue / Today · 🟠 Tomorrow · 🟡 Within 3 days"
+        )
 
     header = st.columns(_COLUMN_WEIGHTS)
     for col, name in zip(header, [*DASHBOARD_COLUMNS, ""], strict=True):
         col.markdown(f"**{name}**")
 
     with st.container(height=600, border=False):
-        for case_id, (_, row) in zip(case_ids, df.iterrows(), strict=True):
+        for case_id, (_, row) in zip(visible_ids, visible_df.iterrows(), strict=True):
             cols = st.columns(_COLUMN_WEIGHTS, vertical_alignment="center")
             for col, name in zip(cols, DASHBOARD_COLUMNS, strict=False):
-                col.write(_format_cell(row[name]))
+                if name == "Deadline":
+                    content, is_html = format_deadline_cell(row["Deadline"], row["Days to deadline"])
+                    if is_html:
+                        col.markdown(content, unsafe_allow_html=True)
+                    else:
+                        col.write(content)
+                else:
+                    col.write(_format_cell(row[name]))
             if cols[-1].button("🔍", key=f"case_details_{case_id}", help="Open case details"):
                 show_case_detail(case_id)

@@ -196,8 +196,10 @@ Current tabs: **System Status** (DB + storage check), **Upload Request** (`views
 restricted to `.pdf` / `.docx` — wrong files are listed in a red error with the reason and excluded from the summary;
 read-only summary table, accept/reject — all files are treated as Applications, accepting resets the UI, displays
 `st.status` while saving each file under `storage/files/applications/`, and shows success), **Dashboard**
-(`views/dashboard.py`: full-width table querying SQLite via `CaseRepository.get_all_cases()` oldest → newest with
-columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline`, `Days to deadline`, `Reply date`, `Status` and a 🔍 button per row that opens the **case detail popup**).
+(`views/dashboard.py`: full-width table querying SQLite via `CaseRepository.get_all_cases()` with
+columns `#`, `Initials`, `Topic`, `Upload date`, `Deadline` — color-highlighted for overdue/today/tomorrow/≤3d —,
+`Days to deadline`, `Reply date`, `Status`, and a 🔍 button per row that opens the **case detail popup**;
+defaults to top 10 cases by nearest deadline with a "Show all cases" toggle for the full oldest → newest list).
   - **Case detail popup (`app/ui/views/case_detail.py` → `show_case_detail(case_id)`):** `st.dialog` stretched to
     ~95% of the window. Top left: application filename and deadline. Top right: one status-dependent button —
     `New` → "Wykonaj analizę" (calls `app/services/registry.py::request_case_analysis`, a placeholder that returns
