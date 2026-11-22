@@ -182,6 +182,18 @@ class QuestionStore:
             for cid in ranked
         ]
 
+    def case_ids(self) -> set[int]:
+        """All case ids that have indexed questions (scrolls the payload; fine for thousands of points)."""
+        ids: set[int] = set()
+        offset = None
+        while True:
+            points, offset = self._client.scroll(
+                self.collection, limit=1000, offset=offset, with_payload=["case_id"], with_vectors=False
+            )
+            ids.update(int(p.payload["case_id"]) for p in points if p.payload and "case_id" in p.payload)
+            if offset is None:
+                return ids
+
     def count_points(self) -> int:
         return self._client.count(self.collection, exact=True).count
 

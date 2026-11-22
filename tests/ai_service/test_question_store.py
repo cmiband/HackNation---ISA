@@ -109,3 +109,9 @@ def test_dense_cosine_scores_per_match_and_per_query_question(store):
     assert by_case[2].question_scores == pytest.approx([0.0, 1.0])  # case 2 is not found for question 1
     match = next(m for m in by_case[1].matches if m.archived == "liczba uczniów w szkołach")
     assert match.dense_score == pytest.approx(1.0)
+
+
+def test_case_ids(store):
+    assert store.case_ids() == {1, 2, 3}
+    store.delete_case(2)
+    assert store.case_ids() == {1, 3}

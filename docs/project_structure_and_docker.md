@@ -128,18 +128,19 @@ HackNation---ISA/
 │   ├── templates/
 │   │   └── response_template.docx   # Part 2
 │   └── seed/
-│       ├── requests/         # the 10 test requests (+ metadata.json with dates/statuses)
-│       ├── archive/          # past requests + responses (real samples + synthetic)
-│       └── legislation/      # UDIP, KPA excerpts, orders
+│       ├── archive/          # 9 sample request/reply pairs: applications/, responses/ (all archived cases)
+│       ├── analysis.json     # cached LLM analysis of the archive requests (questions, summary, ...)
+│       └── legislation/      # planned: UDIP, KPA excerpts, orders
 │
 ├── scripts/
 │   ├── scrape_departments.py # BIP → data/departments.json (re-run to refresh)
 │   ├── extract_questions.py  # manual check: parse → extract questions → (--route) departments
 │   ├── seed_qdrant_local.py  # extract/cache .local/ requests, index into Qdrant, test hybrid search
 │   ├── archive_loader.py     # manual rerun of app/services/archive_loader.py (also runs in init_db when no cases exist)
-│   ├── seed_all.py           # idempotent: DB + vector index from data/seed (--if-empty)
+│   ├── calibrate_similarity.py # archive cross-check vs. similarity thresholds (no LLM)
+│   ├── seed_all.py           # idempotent, run by app.bootstrap: archive pairs → SQLite + Qdrant (cached LLM output)
 │   ├── reindex.py            # rebuild the vector index from DB + data/ (after a backend change)
-│   ├── download_models.py    # used by Dockerfile to bake models into the image
+│   ├── download_models.py    # Dockerfile: bakes the embedding model into the image (runtime offline)
 │   └── generate_synthetic_archive.py   # optional: LLM-generated test archive
 │
 ├── storage/                  # gitignored runtime state (host bind mount): app.db, files/, vectors/
@@ -239,8 +240,9 @@ The real files are the source of truth: `Dockerfile`, `compose.yaml`, `.dockerig
 | Vector index (Qdrant) | named volume `qdrant_storage` | survives restarts; reset = `docker compose down -v` |
 | API key | `.env` (gitignored) | never in the image or repo |
 
-First start: `bootstrap` sees an empty DB → runs `seed_all.py` → 10 test requests, archive and
-legislation indexed → Streamlit starts. Later starts skip seeding.
+Every start: `bootstrap` → `init_db()` → `scripts/seed_all.py` (copies the 9 sample pairs into `storage/files`,
+creates the archive cases if missing, indexes them in Qdrant under their `Case.Id` from the cached analysis —
+no LLM calls) → Streamlit starts.
 
 ## 5. Vector DB (Qdrant)
 

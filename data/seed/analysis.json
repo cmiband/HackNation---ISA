@@ -1,0 +1,290 @@
+{
+  "Wniosek - BKS.IV.1431.15.2026.docx": {
+    "document_number": "BKS.IV.1431.15.2026",
+    "parse_method": "docx",
+    "summary": "Wniosek o informację o stanie, miejscu przechowywania oraz planach na przyszłość rzeźby Ludmiły Stehnovej usuniętej z wyspy Ronda Grunwaldzkiego w Bydgoszczy.",
+    "subject": "rzeźby Ludmiły Stehnovej usuniętej z wyspy Ronda Grunwaldzkiego",
+    "applicant": null,
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "W jakim aktualnie stanie znajduje się rzeźba Ludmiły Stehnovej, która w ubiegłym roku została usunięta z wyspy Ronda Grunwaldzkiego w Bydgoszczy?",
+        "departments": [
+          "WGK",
+          "BKZ"
+        ]
+      },
+      {
+        "text": "W jakiej lokalizacji jest przechowywana rzeźba Ludmiły Stehnovej, która w ubiegłym roku została usunięta z wyspy Ronda Grunwaldzkiego w Bydgoszczy?",
+        "departments": [
+          "WGK",
+          "BKZ"
+        ]
+      },
+      {
+        "text": "Jaki plan mają Państwo odnośnie przyszłości rzeźby Ludmiły Stehnovej, która w ubiegłym roku została usunięta z wyspy Ronda Grunwaldzkiego w Bydgoszczy?",
+        "departments": [
+          "WGK",
+          "BKZ"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.16.2026.pdf": {
+    "document_number": "BKS.IV.1431.16.2026",
+    "parse_method": "pdf_ocr",
+    "summary": "Wniosek o informację o liczbie punktów sprzedaży alkoholu, które przybyły w Bydgoszczy od czasu objęcia funkcji Prezydenta przez Bruskiego do dnia złożenia wniosku.",
+    "subject": "liczby punktów sprzedaży alkoholu w Bydgoszczy",
+    "applicant": "JERZY [nieczytelne]",
+    "letter_date": "2026-01-09",
+    "questions": [
+      {
+        "text": "Ile punktów sprzedaży alkoholu przybyło w Bydgoszczy od czasu objęcia funkcji Prezydenta przez Bruskiego do dnia dzisiejszego?",
+        "departments": [
+          "WSO"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.17.2026.docx": {
+    "document_number": "BKS.IV.1431.17.2026",
+    "parse_method": "docx",
+    "summary": "Wniosek o udostępnienie pełnej dokumentacji związanej z realizacją umowy nr 102/TT/2019 z dnia 27 maja 2019 r. zawartej pomiędzy Miastem Bydgoszcz a spółką Jakotako Sp. z o.o., w tym umowy, aneksów, faktur, protokołów, dokumentacji projektowej i kontrolnej.",
+    "subject": "realizacji umowy nr 102/TT/2019",
+    "applicant": null,
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "Proszę o udostępnienie umowy podstawowej nr 102/TT/2019 z dnia 27.05.2019 r. oraz wszystkich aneksów do tej umowy wraz z załącznikami, zawartej pomiędzy Miastem Bydgoszcz a spółką Jakotako Sp. z o.o.",
+        "departments": [
+          "WZP",
+          "WIM"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie aneksów wraz z kompletnymi załącznikami do umowy nr 102/TT/2019 z dnia 27.05.2019 r., zawartej pomiędzy Miastem Bydgoszcz a spółką Jakotako Sp. z o.o.",
+        "departments": [
+          "WZP",
+          "WIM"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie protokołów konieczności lub protokołów negocjacyjnych podpisanych w związku z zawieraniem aneksów do umowy nr 102/TT/2019 z dnia 27.05.2019 r., wraz z ich załącznikami.",
+        "departments": [
+          "WZP",
+          "WIM"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie wszystkich faktur wystawionych przez wykonawcę Jakotako Sp. z o.o. w związku z realizacją umowy nr 102/TT/2019 z dnia 27.05.2019 r., wraz z załącznikami do tych faktur oraz potwierdzenia dokonania płatności za te faktury.",
+        "departments": [
+          "WK",
+          "WIM",
+          "WZP"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie protokołów odbioru wykonanych prac lub protokołów zaawansowania robót sporządzane w toku realizacji umowy nr 102/TT/2019 z dnia 27.05.2019 r. - wraz z ich załącznikami.",
+        "departments": [
+          "WIM",
+          "WZP"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie dokumentów przekazania licencji w ramach realizacji umowy nr 102/TT/2019 z dnia 27.05.2019 r.",
+        "departments": [
+          "WIM",
+          "WZP"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie umowy o dofinansowanie projektu realizowanego na podstawie umowy nr 102/TT/2019 z dnia 27.05.2019 r. wraz ze wszystkimi aneksami i załącznikami.",
+        "departments": [
+          "WF",
+          "BZIT"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie wniosków o płatność składanych w ramach realizacji umowy o dofinansowanie projektu dla umowy nr 102/TT/2019 z dnia 27.05.2019 r., wraz z kompletem załączników do tych wniosków.",
+        "departments": [
+          "WF",
+          "BZIT"
+        ]
+      },
+      {
+        "text": "Proszę o udostępnienie protokołów pokontrolnych oraz innych dokumentów pokontrolnych sporządzonych w związku z audytami lub kontrolami realizacji zamówienia dla umowy nr 102/TT/2019 z dnia 27.05.2019 r.",
+        "departments": [
+          "WZK",
+          "WIM"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.18.2026.docx": {
+    "document_number": "BKS.IV.1431.18.2026",
+    "parse_method": "docx",
+    "summary": "Wniosek o udostępnienie informacji publicznej w zakresie liczby mieszkańców na podstawie opłat za gospodarowanie odpadami komunalnymi dla bloków i posesji prywatnych położonych przy wskazanych ulicach na terenie Bydgoszczy.",
+    "subject": "liczby mieszkańców na podstawie opłat za gospodarowanie odpadami komunalnymi dla wyznaczonych ulic",
+    "applicant": "Proboszcz Parafii św. Maksymiliana Kolbego w Bydgoszczy",
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "Wniosek o udostępnienie informacji o liczbie mieszkańców na podstawie opłat za gospodarowanie odpadami komunalnymi dla wskazanych bloków i posesji prywatnych leżących przy ulicach: Albatrosowa, Bażancia, Biedronkowa, Borsucza, Cietrzewia, Czapla, Czyżykowa, Drozdów, Dzięciołowa, Gawronia, Gęsia, Głuszcowa, Grunwaldzka od nr 228 do końca, Ibisowa, Indycza, Jarząbkowa, Kacza, Kanarkowa, Kobaltowa, Kogucia, Kolibrowa, Kormoranów, Krańcowa, Kraskowa, Krogulcza, Kruszyńska, Kukułcza, Łabędzia, Mewia, Miedziana, Mińska – od nr 102 do 188, Motylowa, Niklowa, Ołowiana, Papuzia, Pelikanowa, Perkozowa, Perlicza, Pingwinowa, Platynowa, Podmiejska, Przepiórcza, Ptasia, Puszczykowa, Rudzikowa, Sarnia, Sępia, Skośna, Skowronków, Słowicza, Spiżowa, Sowia, Srebrna, Stalowa, Strusia, Szczygla, Szpakowa, Św. Maksymiliana Kolbego od nr 16 do 46 (tylko parzyste), Tukanowa, Waleniowa, Wiewiórcza, Wronia, Wróblowa, Ziębia, Zimorodkowa, Złota.",
+        "departments": [
+          "WGO",
+          "WW"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.293.2025.docx": {
+    "document_number": "BKS.IV.1431.293.2025",
+    "parse_method": "docx",
+    "summary": "Wniosek o udostępnienie informacji publicznej dotyczącej realizacji zadania opieki nad bezdomnymi zwierzętami i ich wyłapywania w 2024 r., w tym informacji o podwykonawcach, kosztach, liczbie objętych opieką zwierząt oraz kopii umów.",
+    "subject": "realizacji zadania opieki nad bezdomnymi zwierzętami i ich wyłapywania w 2024 r.",
+    "applicant": "Stowarzyszenie Obrony Zwierzątek",
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "Z kim (imię, nazwisko lub nazwa, adres) gmina miała obowiązujące w 2024 r. umowy albo komu udzielała doraźnych zleceń wyłapywania lub odławiania bezdomnych zwierząt?",
+        "departments": [
+          "WZK"
+        ]
+      },
+      {
+        "text": "Z kim (imię, nazwisko lub nazwa, adres) gmina miała obowiązujące w 2024 r. umowy albo komu udzielała doraźnych zleceń zapewniania opieki bezdomnym zwierzętom?",
+        "departments": [
+          "WZK"
+        ]
+      },
+      {
+        "text": "Ilu bezdomnym zwierzętom (z podziałem na psy i koty) zapewniono opiekę na koszt gminy w 2024 r., nie licząc zwierząt, którymi zajęto się w latach poprzednich?",
+        "departments": [
+          "WZK"
+        ]
+      },
+      {
+        "text": "Jaki był w 2024 r. rzeczywisty koszt realizacji całego zadania przewidzianego ustawą o ochronie zwierząt (wyłapywanie lub odławianie, opieka, usługi weterynaryjne, dokarmianie, inne)?",
+        "departments": [
+          "WZK"
+        ]
+      },
+      {
+        "text": "Udostępnienie treści i postaci umowy lub umów wraz z załącznikami o zapewnianie opieki bezdomnym zwierzętom w 2024 r.",
+        "departments": [
+          "WZK"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.307.2025.docx": {
+    "document_number": "BKS.IV.1431.307.2025",
+    "parse_method": "docx",
+    "summary": "Wniosek o udostępnienie aktualnego zestawienia liczby uczniów oraz liczby obcokrajowców w poszczególnych szkołach podstawowych.",
+    "subject": "liczby uczniów i obcokrajowców w szkołach podstawowych",
+    "applicant": "Ewa Góra",
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "Aktualne zestawienie liczby uczniów w szkołach podstawowych w Bydgoszczy",
+        "departments": [
+          "WE"
+        ]
+      },
+      {
+        "text": "Liczba obcokrajowców w poszczególnych szkołach podstawowych w Bydgoszczy",
+        "departments": [
+          "WE"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.509.2026.docx": {
+    "document_number": "BKS.IV.1431.509.2026",
+    "parse_method": "docx",
+    "summary": "Wniosek o udostępnienie dokumentacji (projektu zagospodarowania, zieleni, wizualizacji, parametrów technicznych) oraz informacji o obsłudze terenu nowego apartamentowca na terenie po budynku Astrum, w tym o przebudowie bulwarów i drogi dojazdowej.",
+    "subject": "dokumentacji i obsługi terenu nowego apartamentowca w miejscu budynku Astrum",
+    "applicant": "E. Góra",
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "Przesłanie dokumentacji dotyczącej budynku nowego apartamentowca (teren po budynku Astrum) w zakresie: Projekt zagospodarowania terenu, Projekt zagospodarowania zieleni, Wizualizacje, Zestawienie parametrów technicznych budynku.",
+        "departments": [
+          "WAB"
+        ]
+      },
+      {
+        "text": "Informacja, jak będzie wyglądać obsługa terenu budynku nowego apartamentowca (teren po budynku Astrum), tj. czy został już uzgodniony projekt przebudowy bulwarów oraz drogi dojazdowej do budynku.",
+        "departments": [
+          "WIM",
+          "WGK",
+          "WAB"
+        ]
+      },
+      {
+        "text": "Informacja, po czyjej stronie (inwestora czy miasta) będzie przebudowa nabrzeża i bulwaru w ramach obsługi terenu budynku nowego apartamentowca (teren po budynku Astrum).",
+        "departments": [
+          "WIM",
+          "WGK",
+          "WMG"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.543.2026.pdf": {
+    "document_number": "BKS.IV.1431.543.2026",
+    "parse_method": "pdf_ocr",
+    "summary": "Wniosek o udostępnienie informacji publicznej dotyczącej realizacji zadania opieka nad bezdomnymi zwierzętami i ich wyłapywanie w 2025 roku, w tym informacji o podmiotach realizujących usługi, kosztach, liczbie zwierząt oraz treści umów.",
+    "subject": "realizacji zadania opieka nad bezdomnymi zwierzętami i ich wyłapywanie w 2025 roku",
+    "applicant": null,
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "z kim (imię, nazwisko lub nazwa, adres) gmina miała obowiązujące w 2025 r. umowy albo komu (imię, nazwisko lub nazwa, adres) udzielała doraźnych zleceń wyłapywania/odławiania bezdomnych zwierząt?",
+        "departments": [
+          "WOŚ"
+        ]
+      },
+      {
+        "text": "z kim (imię, nazwisko lub nazwa, adres) gmina miała obowiązujące w 2025 r. umowy albo komu (imię, nazwisko lub nazwa, adres) udzielała doraźnych zleceń zapewniania opieki bezdomnym zwierzętom?",
+        "departments": [
+          "WOŚ"
+        ]
+      },
+      {
+        "text": "ilu bezdomnym zwierzętom (z podziałem na psy i koty) zapewniono opiekę na koszt gminy w 2025 r. (nie licząc zwierząt, którymi zajęto się w latach poprzednich)?",
+        "departments": [
+          "WOŚ"
+        ]
+      },
+      {
+        "text": "jaki był w 2025 r. faktycznie poniesiony koszt realizacji całego zadania przewidzianego ustawą o ochronie zwierząt (wyłapywanie/odławianie, opieka, usługi weterynaryjne, dokarmianie, inne)?",
+        "departments": [
+          "WOŚ"
+        ]
+      },
+      {
+        "text": "udostępnienie treści i postaci umowy/umów (wraz z załącznikami) o zapewnianie opieki bezdomnym zwierzętom w 2025 r.",
+        "departments": [
+          "WOŚ"
+        ]
+      }
+    ]
+  },
+  "Wniosek - BKS.IV.1431.590.2026.pdf": {
+    "document_number": "BKS.IV.1431.590.2026",
+    "parse_method": "pdf_text",
+    "summary": "Wniosek o informację, czy wskazana osoba pełniła funkcję Kierownika robót teletechnicznych/telekomunikacyjnych przy inwestycji „Budowa kompleksu Astoria” w Bydgoszczy, wraz z podaniem okresu pełnienia tej funkcji.",
+    "subject": "pełnienia funkcji Kierownika robót teletechnicznych/telekomunikacyjnych przy inwestycji „Budowa kompleksu Astoria”",
+    "applicant": "Budowlanka S.A.",
+    "letter_date": null,
+    "questions": [
+      {
+        "text": "Czy Pan pełnił funkcję Kierownika robót teletechnicznych/telekomunikacyjnych przy inwestycji „Budowa kompleksu Astoria ul. Królowej Jadwigi 23 w Bydgoszczy – „Rewitalizacja kompleksu Astoria na cele sportowo - rekreacyjne wraz z budową 50 -metrowego basenu” ze wskazaniem terminu pełnienia funkcji rozumianego jako okres wpisu do dziennika budowy (w układzie „od dzień/miesiąc/rok do dzień/miesiąc/rok”)?",
+        "departments": [
+          "WIM"
+        ]
+      }
+    ]
+  }
+}
