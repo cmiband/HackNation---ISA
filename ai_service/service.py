@@ -201,6 +201,9 @@ class AIService:
             warnings=warnings,
         )
 
+    def extract_text(self, document: DocumentInput) -> str:
+        return self._read_document(document)
+
     def delete_case(self, case_id: int) -> None:
         self._get_store().delete_case(case_id)
 

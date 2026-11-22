@@ -373,6 +373,16 @@ department requests (one per unit); department reply files (any number, `storage
 editor (highlighted values, unanswered questions, notes, edit + save → `Case.draft_json`). Logic:
 `app/services/case_response.py`.
 
+### 8.4a Implemented — anonymization review and final letter
+- `app/ui/components/anonymization.py`: `anonymize()` proposals shown gray with checkboxes (all selected), the
+  official deselects or adds fragments (`[OTHER_n]`), "Zatwierdź" → approved spans black → `redact()` with the
+  confirmed mapping. Team decision: the exported letter keeps the placeholders (`[PERSON_1]`, …).
+- `app/services/exporter.py`: BKS letter frame (letterhead, Polish date, number, addressee + "[adres
+  wnioskodawcy]", "Szanowni Państwo,", body, closing) → `.docx` / `.txt`; "Zapisz odpowiedź w sprawie" stores
+  it as the case's RESPONSE file (`Odpowiedź - <nr>.docx`) and sets Response_Generated (also straight from
+  Processed after an accepted shortcut).
+- Tab "🕶️ Anonimizacja": any PDF/DOCX → `extract_text` (new protocol method) → same review → download.
+
 ### 8.4 Case view (`views/case.py`) and registry (`app/services/registry.py`)
 - Metadata edit, status changes with allowed transitions + `CaseHistory` (already in `CaseRepository.update`),
   history list.

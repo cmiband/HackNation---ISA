@@ -41,7 +41,12 @@ from app.ui.views.case_analysis import (
     render_shortcut_banner,
     shortcut_banner_visible,
 )
-from app.ui.views.case_response import accept_shortcut, render_department_replies, render_draft_editor
+from app.ui.views.case_response import (
+    accept_shortcut,
+    render_department_replies,
+    render_draft_editor,
+    render_finalize,
+)
 from contracts.enums import CaseStatus, RequestStatus
 
 # Make the dialog cover almost the whole browser window.
@@ -94,6 +99,7 @@ class CaseDetail:
     status: CaseStatus
     file_path: Path | None  # application file on disk; None when it is missing
     received: date | None = None  # Case.created_date (date of receipt)
+    case_number: str | None = None  # Case.document_number
 
 
 def resolve_application_path(filename: str, applications_dir: Path | None = None) -> Path | None:
@@ -129,6 +135,7 @@ def load_case_detail(
             status=case.status,
             file_path=resolve_application_path(filename, applications_dir) if filename else None,
             received=case.created_date,
+            case_number=case.document_number,
         )
 
 
@@ -455,7 +462,8 @@ def show_case_detail(case_id: int) -> None:
 
     render_department_requests(detail.case_id, detail.status)
     render_department_replies(detail.case_id, detail.status)
-    render_draft_editor(detail.case_id, detail.status, [q.text for q in view.questions] if view else [])
+    draft = render_draft_editor(detail.case_id, detail.status, [q.text for q in view.questions] if view else [])
+    render_finalize(detail.case_id, detail.status, draft, detail.case_number, view.applicant if view else None)
 
     st.divider()
 

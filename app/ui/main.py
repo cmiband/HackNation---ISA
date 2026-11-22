@@ -2,7 +2,7 @@ import streamlit as st
 
 from app.config import settings
 from app.db.engine import check_db_connection, init_db
-from app.ui.views import dashboard, upload
+from app.ui.views import anonymize, dashboard, upload
 
 
 @st.cache_resource
@@ -32,10 +32,11 @@ st.markdown(
 )
 
 # Streamlit standard tabs navigation
-tab_status, tab_upload, tab_dashboard = st.tabs([
+tab_status, tab_upload, tab_dashboard, tab_anonymize = st.tabs([
     "🛠️ System Status",
     "📤 Upload Request",
     "📊 Dashboard",
+    "🕶️ Anonimizacja",
 ])
 
 with tab_status:
@@ -89,3 +90,6 @@ with tab_upload:
 
 with tab_dashboard:
     dashboard.render()
+
+with tab_anonymize:
+    anonymize.render()

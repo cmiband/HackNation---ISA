@@ -4,6 +4,7 @@ from contracts.enums import TriageKind
 from contracts.models import (
     AnalyzeInput,
     AnalyzeResult,
+    DocumentInput,
     DraftInput,
     DraftResult,
     Health,
@@ -62,6 +63,14 @@ class MockAIService:
             values_to_verify=["2024/2025", "21 437", "[brak odpowiedzi komórki merytorycznej]"],
             unanswered_questions=[2] if len(input_data.questions) > 1 else [],
             notes="(mock) Brak danych o cudzoziemcach w przekazanych dokumentach.",
+        )
+
+    def extract_text(self, document: DocumentInput) -> str:
+        if document.text is not None:
+            return document.text
+        return (
+            f"(mock) Treść pliku {document.filename}. Wnioskodawca: Jan Kowalski, ul. Długa 5, 85-001 Bydgoszcz, "
+            "tel. 601 234 567, e-mail: jan.kowalski@example.com, PESEL 90010112349."
         )
 
     def delete_case(self, case_id: int) -> None:
