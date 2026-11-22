@@ -69,6 +69,7 @@ for summary, questions, departments, similar cases and triage, made after the of
 | Method | Input | Output |
 |--------|-------|--------|
 | `analyze_request` | `AnalyzeInput {case_id, filename + data \| text}` | `AnalyzeResult {case_id, text, parse_method, summary, subject, applicant, letter_date, questions[{text, departments}], suggested_departments, similar_cases[], triage, warnings}` |
+| `draft_response` | `DraftInput {analysis, kind?, case_number?, letter_date?, department_replies[], archived_reply?, competent_body_id?}` | `DraftResult {kind, letter_text, body, values_to_verify, unanswered_questions, period_differs, notes, warnings}` |
 | `delete_case` | `case_id` | — |
 | `health` | — | `Health {status, vector_db_count, departments_loaded, llm_provider}` |
 
@@ -76,7 +77,7 @@ for summary, questions, departments, similar cases and triage, made after the of
 - `triage`: `{kind: Standard | Duplicate | Out_Of_Scope (contracts.enums.TriageKind), duplicate_case_ids, competent_body_id, reason}` — a proposal; the official decides.
 - `suggested_departments[]`: department **codes only** (e.g. `"WE"`), most relevant first (team decision). Subteam A looks up names/e-mails in `data/departments.json` (or the `Department` table seeded from it).
 - An unreadable file raises `contracts.protocol.DocumentReadError`; other failures give a partial result with `warnings`.
-- `ingest` was removed (archive cases are indexed by `analyze_request` too). Drafting methods are added with Part 2 (`second_part_engineering_plan.md` §6). Anonymization is **not** part of this protocol (see §6.7).
+- `ingest` was removed (archive cases are indexed by `analyze_request` too). `draft_response` is specified in `second_part_engineering_plan.md` §6.2. Anonymization is **not** part of this protocol (see §6.7).
 
 ### 4.2 Usage rules
 - Pydantic models live in `contracts/models.py`, enums in `contracts/enums.py`.

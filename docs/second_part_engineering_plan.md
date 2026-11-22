@@ -230,7 +230,7 @@ it in. The prompt gets the external bodies list (name + scope) next to the depar
 - For the demo: 1–2 short fictional department replies in `data/seed/department_replies/` (the samples contain
   only final BKS replies).
 
-### 5.2 Draft generation (`ai_service/drafting/drafter.py`, `ResponseDrafter`)
+### 5.2 Draft generation — implemented as `DepartmentReplyDrafter` (`ai_service/drafting/drafters.py`, see §6.2)
 - One LLM call. Inputs: questions, department replies `[{code, name, text}]`, optional style example (best
   similar archived reply). Output:
   ```python
@@ -243,7 +243,7 @@ it in. The prompt gets the external bodies list (name + scope) next to the depar
   placeholder, not an invented answer.
 - Without an LLM: deterministic body = for each question "Ad n" + the pasted department text.
 
-### 5.3 Letter assembly (`ai_service/drafting/letter.py`, deterministic, shared by all three paths)
+### 5.3 Letter assembly — implemented (`ai_service/drafting/letter.py`; neutral "Szanowni Państwo,")
 - Letterhead: "URZĄD MIASTA BYDGOSZCZY / Biuro Komunikacji Społecznej / 85-102 Bydgoszcz, ul. Jezuicka 1 /
   tel. (52) 58 58 365 / bks@um.bydgoszcz.pl" (from the sample replies).
 - "Bydgoszcz, dnia {d} {month in genitive} {yyyy} r." — own month table, no locale dependency.
@@ -283,7 +283,20 @@ SQLite id), no separate indexing call, no progress callback. Usage and fields: R
 - `factory.get_ai_service(mock=None)`: `AI_MOCK=1` → `MockAIService` (canned, no models); `.env.example` now
   has `AI_MOCK=0`.
 
-### 6.2 Still to add to the protocol (Part 2)
+### 6.2 Implemented — `draft_response` (branch `feat/external-bodies`)
+`draft_response(DraftInput{analysis: AnalyzeResult, kind?, case_number?, letter_date?, department_replies:
+[DocumentInput{filename+data | text, source}], archived_reply?: DocumentInput, competent_body_id?})` →
+`DraftResult{kind, letter_text, body, values_to_verify, unanswered_questions, period_differs, notes, warnings}`.
+`ai_service/drafting/letter.py` (BKS letterhead, Polish date, neutral salutation — team decision, placeholders,
+redirect template with `UDIP_CITATION = "t.j. Dz. U. z 2022 r. poz. 902 z późn. zm."`), `drafters.py`
+(`ArchiveReplyAdapter`, `DepartmentReplyDrafter`; validators: values must be exact substrings, unanswered in
+range), prompts `draft_from_archive.md`, `draft_from_departments.md`. The app must keep the `AnalyzeResult` of a
+case (e.g. a JSON column) to call it. Gemini check: 543 ← reply of 293 (period_differs, all 2024 values
+flagged, question 5 marked missing), 599 ← reply of 307 (attachment-only reply → both questions to fill in),
+18 from a fictional WGO reply (facts only, internal remarks and the clerk's name dropped), tram → ZDMiKP
+redirect. Draft design below (§6.2 original) for reference.
+
+### 6.2a Original draft of the drafting contract
 
 | Method | Input → Output | Notes |
 |--------|----------------|-------|

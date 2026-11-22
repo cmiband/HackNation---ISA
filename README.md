@@ -137,6 +137,37 @@ status page. LLM, embedder or Qdrant failures never raise — the result is part
   courts). Fix planned: external bodies directory (`docs/second_part_engineering_plan.md` §4).
 - 2 LLM calls per request (+1 OCR for scans). First call loads the embedding model (a few seconds).
 
+### Draft reply (`service.draft_response`, `ai_service/drafting/`)
+
+After the official chose the path (accepted the proposed triage or continued the standard pipeline) and, for
+the standard path, uploaded the department replies:
+
+```python
+from contracts.models import DocumentInput, DraftInput
+
+draft = service.draft_response(DraftInput(
+    analysis=result,                     # the AnalyzeResult of this case — store it with the case (JSON)
+    kind=None,                           # None = result.triage.kind; or the path the official chose
+    case_number=case.document_number,    # placeholder "[numer sprawy]" if None
+    department_replies=[DocumentInput(filename=f.name, data=f.read(), source="WE")],    # STANDARD
+    archived_reply=DocumentInput(filename=reply.name, data=reply_bytes),                 # DUPLICATE
+))
+draft.letter_text          # whole letter: BKS letterhead, date, number, addressee, "Szanowni Państwo,", body, closing
+draft.values_to_verify     # exact substrings to highlight: numbers/dates taken over + "[…]" placeholders
+draft.unanswered_questions # 1-based numbers of result.questions without an answer (STANDARD)
+draft.period_differs, draft.notes, draft.warnings
+```
+
+- `STANDARD`: one LLM call writes the body only from the department replies ("Ad 1 / Ad 2", units named,
+  internal remarks and private persons' data dropped, missing answers marked).
+- `DUPLICATE`: one LLM call adapts the archived reply (the reply file of a case from
+  `triage.duplicate_case_ids` that has one) to the new request; `period_differs` + all taken-over values in
+  `values_to_verify` when the period differs.
+- `OUT_OF_SCOPE`: no LLM — redirect letter (art. 4 ust. 3 UDIP, as in samples 15/17) with the contact data of
+  `triage.competent_body_id` from `data/external_bodies.json`, or a placeholder for the official.
+- Neutral salutation (no Pan/Pani). Without an LLM: a template with the inputs to edit, plus `warnings`.
+  Unreadable files raise `DocumentReadError`. Anonymization runs on `letter_text` afterwards (separate module).
+
 ### Question extraction (`ai_service/llm/`)
 
 Extracts only the applicant's questions/requests from the full text of a request (drops greetings,

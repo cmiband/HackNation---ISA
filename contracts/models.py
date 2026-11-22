@@ -77,3 +77,46 @@ class Health(BaseModel):
     vector_db_count: int  # indexed questions (-1 = vector DB unavailable)
     departments_loaded: int
     llm_provider: str  # first configured model, "none" or "mock"
+
+
+# --- Draft reply (Part 2) ---------------------------------------------------------------------------------
+
+
+class DocumentInput(BaseModel):
+    """A document given to the drafter: a file (`filename` + `data`) or already known `text`."""
+
+    filename: str = ""
+    data: bytes | None = None
+    text: str | None = None
+    source: str = ""  # who wrote it: department code (e.g. "WE"), external body id, or "" if unknown
+
+    @model_validator(mode="after")
+    def _text_or_file(self) -> "DocumentInput":
+        if self.text is None and (self.data is None or not self.filename):
+            raise ValueError("Provide `text`, or `filename` together with `data`.")
+        return self
+
+
+class DraftInput(BaseModel):
+    """Everything needed to draft the reply letter of one case."""
+
+    analysis: AnalyzeResult  # result of analyze_request for this case (questions, subject, applicant, triage)
+    kind: TriageKind | None = None  # path chosen by the official; None = analysis.triage.kind
+    case_number: str | None = None  # Case.document_number, e.g. "BKS.IV.1431.18.2026" (placeholder if None)
+    letter_date: date | None = None  # date written on the letter (default: today)
+    department_replies: list[DocumentInput] = Field(default_factory=list)  # STANDARD: replies of the units
+    archived_reply: DocumentInput | None = None  # DUPLICATE: reply file of the duplicate case
+    competent_body_id: str | None = None  # OUT_OF_SCOPE: override of analysis.triage.competent_body_id
+
+
+class DraftResult(BaseModel):
+    kind: TriageKind  # path the draft was written for
+    letter_text: str  # full letter: letterhead, date, case number, addressee, salutation, body, closing
+    body: str  # the part between salutation and closing
+    # exact substrings of letter_text the official must check: numbers/dates taken over from documents and
+    # placeholders in square brackets (e.g. "[adres wnioskodawcy]") — highlight them in the editor
+    values_to_verify: list[str] = Field(default_factory=list)
+    unanswered_questions: list[int] = Field(default_factory=list)  # 1-based numbers of analysis.questions
+    period_differs: bool = False  # DUPLICATE: the archived reply covers another period/scope -> verify values
+    notes: str = ""  # explanation for the official (Polish)
+    warnings: list[str] = Field(default_factory=list)  # e.g. LLM unavailable -> template draft
