@@ -1,0 +1,212 @@
+{
+  "description": "Hand-written evaluation set for similar-case search and triage (no tuning data). Fictional Bydgoszcz City Hall requests, no personal data. Questions are already in the extracted, self-contained form produced by RequestAnalyzer, so the evaluation measures search + triage only (no LLM calls).",
+  "labels": {
+    "duplicate": "same request reworded; expected DUPLICATE of `duplicate_of`",
+    "duplicate_new_period": "same data asked for a newer period; expected DUPLICATE of `duplicate_of` (reply reused, values flagged)",
+    "partial": "one question repeats an archived case, another one is new; expected the case in similar_cases, NOT DUPLICATE",
+    "related": "same subject area but different information; the archived case is useful to see (soft expectation), NOT DUPLICATE",
+    "unrelated": "topic not in the archive (often outside City Hall); expected no similar case",
+    "hard_negative": "shares a street, venue, institution or keyword with an archived case but asks for something else; expected no similar case"
+  },
+  "archive": [
+    {"id": 1, "title": "Uczniowie i oddziały w szkołach podstawowych 2024/2025", "questions": [
+      "Liczba uczniów w poszczególnych szkołach podstawowych prowadzonych przez Miasto Bydgoszcz w roku szkolnym 2024/2025.",
+      "Liczba oddziałów klasowych w poszczególnych szkołach podstawowych w Bydgoszczy w roku szkolnym 2024/2025."]},
+    {"id": 2, "title": "Wynagrodzenia dyrektorów szkół i przedszkoli 2024", "questions": [
+      "Wysokość wynagrodzeń dyrektorów szkół i przedszkoli prowadzonych przez Miasto Bydgoszcz w 2024 r., z podziałem na placówki."]},
+    {"id": 3, "title": "Miejsca w żłobkach miejskich 2024", "questions": [
+      "Liczba miejsc w żłobkach miejskich w Bydgoszczy w 2024 r.",
+      "Liczba dzieci oczekujących na przyjęcie do żłobków miejskich w Bydgoszczy w 2024 r."]},
+    {"id": 4, "title": "Koszty i ilość odpadów komunalnych 2024", "questions": [
+      "Koszt odbioru i zagospodarowania odpadów komunalnych poniesiony przez Miasto Bydgoszcz w 2024 r.",
+      "Ilość odpadów zebranych selektywnie w Bydgoszczy w 2024 r. w tonach, z podziałem na frakcje (papier, szkło, tworzywa sztuczne, bioodpady)."]},
+    {"id": 5, "title": "Wycinka drzew na podstawie zezwoleń 2024", "questions": [
+      "Liczba drzew usuniętych w Bydgoszczy w 2024 r. na podstawie zezwoleń wydanych przez Prezydenta Miasta.",
+      "Łączna wysokość opłat za usunięcie drzew pobranych przez Miasto Bydgoszcz w 2024 r."]},
+    {"id": 6, "title": "Pozwolenia na budowę 2024", "questions": [
+      "Liczba pozwoleń na budowę wydanych przez Prezydenta Miasta Bydgoszczy w 2024 r.",
+      "Wykaz pozwoleń na budowę budynków mieszkalnych wielorodzinnych wydanych w Bydgoszczy w 2024 r., z adresami inwestycji."]},
+    {"id": 7, "title": "Decyzja WZ dla działki przy ul. Fordońskiej", "questions": [
+      "Kopia decyzji o warunkach zabudowy wydanej dla działki nr 15/3 w obrębie 112 przy ul. Fordońskiej w Bydgoszczy."]},
+    {"id": 8, "title": "Nieruchomości gminne do sprzedaży", "questions": [
+      "Wykaz nieruchomości stanowiących własność Miasta Bydgoszczy przeznaczonych do sprzedaży w 2025 r.",
+      "Kwota uzyskana przez Miasto Bydgoszcz ze sprzedaży nieruchomości gminnych w 2024 r."]},
+    {"id": 9, "title": "Zadłużenie miasta 2024", "questions": [
+      "Wysokość zadłużenia Miasta Bydgoszczy na dzień 31 grudnia 2024 r.",
+      "Kwota rat kredytów, pożyczek i wykupu obligacji spłaconych przez Miasto Bydgoszcz w 2024 r."]},
+    {"id": 10, "title": "Podatek od nieruchomości i umorzenia 2024", "questions": [
+      "Wysokość wpływów z podatku od nieruchomości do budżetu Miasta Bydgoszczy w 2024 r.",
+      "Liczba decyzji o umorzeniu zaległości podatkowych wydanych przez Prezydenta Miasta Bydgoszczy w 2024 r."]},
+    {"id": 11, "title": "Bydgoski Budżet Obywatelski 2025", "questions": [
+      "Lista projektów wybranych do realizacji w Bydgoskim Budżecie Obywatelskim na 2025 r. wraz z ich kosztami.",
+      "Stan realizacji projektów Bydgoskiego Budżetu Obywatelskiego z edycji na 2024 r."]},
+    {"id": 12, "title": "Śluby cywilne w USC 2024", "questions": [
+      "Liczba ślubów cywilnych zawartych w Urzędzie Stanu Cywilnego w Bydgoszczy w 2024 r."]},
+    {"id": 13, "title": "Liczba mieszkańców według osiedli 2024", "questions": [
+      "Liczba osób zameldowanych na pobyt stały w Bydgoszczy według stanu na 31 grudnia 2024 r., z podziałem na osiedla."]},
+    {"id": 14, "title": "Dotacje dla organizacji pozarządowych 2024", "questions": [
+      "Wykaz dotacji udzielonych organizacjom pozarządowym z budżetu Miasta Bydgoszczy w 2024 r., z nazwą organizacji, nazwą zadania i kwotą dotacji."]},
+    {"id": 15, "title": "Dni Bydgoszczy 2024", "questions": [
+      "Całkowity koszt organizacji obchodów Dni Bydgoszczy w 2024 r.",
+      "Wysokość wynagrodzeń wypłaconych artystom występującym podczas koncertów w ramach Dni Bydgoszczy w 2024 r."]},
+    {"id": 16, "title": "Wydatki na promocję w mediach 2024", "questions": [
+      "Wydatki Miasta Bydgoszczy na promocję i ogłoszenia w prasie, radiu i telewizji w 2024 r., z podziałem na poszczególne media."]},
+    {"id": 17, "title": "Umowy z kancelariami prawnymi 2023-2024", "questions": [
+      "Wykaz umów zawartych przez Urząd Miasta Bydgoszczy z kancelariami prawnymi w latach 2023–2024, wraz z ich wartością."]},
+    {"id": 18, "title": "Etaty i wynagrodzenia w Urzędzie Miasta 2024", "questions": [
+      "Liczba etatów w Urzędzie Miasta Bydgoszczy według stanu na koniec 2024 r.",
+      "Przeciętne miesięczne wynagrodzenie brutto pracowników Urzędu Miasta Bydgoszczy w 2024 r."]},
+    {"id": 19, "title": "Trasa Uniwersytecka: umowa i koszt", "questions": [
+      "Kopia umowy na budowę Trasy Uniwersyteckiej w Bydgoszczy wraz ze wszystkimi aneksami.",
+      "Całkowity koszt inwestycji polegającej na budowie Trasy Uniwersyteckiej w Bydgoszczy."]},
+    {"id": 20, "title": "Remont dachu hali Łuczniczka", "questions": [
+      "Koszt i harmonogram remontu dachu hali widowiskowo-sportowej Łuczniczka w Bydgoszczy w 2024 r."]},
+    {"id": 21, "title": "Przetarg na energię elektryczną 2024", "questions": [
+      "Wyniki postępowania przetargowego na dostawę energii elektrycznej do budynków i obiektów miejskich w Bydgoszczy na 2024 r.",
+      "Cena jednostkowa energii elektrycznej za 1 MWh wynikająca z umowy zawartej po tym przetargu na 2024 r."]},
+    {"id": 22, "title": "Zezwolenia na sprzedaż alkoholu 2024", "questions": [
+      "Liczba zezwoleń na sprzedaż napojów alkoholowych wydanych przez Prezydenta Miasta Bydgoszczy w 2024 r.",
+      "Liczba punktów sprzedaży napojów alkoholowych działających w Bydgoszczy w 2024 r."]},
+    {"id": 23, "title": "Uchwały o nazwach ulic 2024", "questions": [
+      "Uchwały Rady Miasta Bydgoszczy w sprawie nadania lub zmiany nazw ulic podjęte w 2024 r."]},
+    {"id": 24, "title": "Interpelacje radnych 2024", "questions": [
+      "Liczba interpelacji i zapytań złożonych przez radnych Rady Miasta Bydgoszczy w 2024 r.",
+      "Liczba odpowiedzi na interpelacje radnych udzielonych po terminie w 2024 r."]},
+    {"id": 25, "title": "Utrzymanie zieleni miejskiej 2024", "questions": [
+      "Koszt utrzymania zieleni miejskiej w Bydgoszczy w 2024 r. (koszenie trawników, pielęgnacja drzew i krzewów).",
+      "Liczba nowych drzew posadzonych przez Miasto Bydgoszcz w 2024 r."]},
+    {"id": 26, "title": "Mieszkania komunalne 2024", "questions": [
+      "Liczba lokali mieszkalnych w zasobie komunalnym Miasta Bydgoszczy w 2024 r.",
+      "Liczba osób oczekujących na przydział mieszkania komunalnego w Bydgoszczy na koniec 2024 r."]},
+    {"id": 27, "title": "Plan miejscowy Stary Fordon", "questions": [
+      "Etap prac nad miejscowym planem zagospodarowania przestrzennego dla obszaru Starego Fordonu w Bydgoszczy i planowany termin jego uchwalenia."]},
+    {"id": 28, "title": "Opłaty dodatkowe w strefie płatnego parkowania 2024", "questions": [
+      "Liczba opłat dodatkowych nałożonych za nieopłacony postój w Strefie Płatnego Parkowania w Bydgoszczy w 2024 r."]},
+    {"id": 29, "title": "Monitoring miejski 2024", "questions": [
+      "Liczba kamer monitoringu miejskiego działających w Bydgoszczy w 2024 r.",
+      "Roczny koszt utrzymania systemu monitoringu miejskiego w Bydgoszczy w 2024 r."]},
+    {"id": 30, "title": "Gminna ewidencja zabytków i dotacje konserwatorskie", "questions": [
+      "Liczba obiektów ujętych w gminnej ewidencji zabytków Miasta Bydgoszczy.",
+      "Wysokość dotacji udzielonych z budżetu Miasta Bydgoszczy na prace konserwatorskie przy zabytkach w 2024 r."]}
+  ],
+  "queries": [
+    {"id": "D01", "kind": "duplicate", "duplicate_of": [1], "relevant": [1], "questions": [
+      "Ile dzieci uczyło się w roku szkolnym 2024/2025 w każdej z bydgoskich szkół podstawowych?",
+      "Ile klas (oddziałów) liczyły poszczególne szkoły podstawowe w Bydgoszczy w roku szkolnym 2024/2025?"]},
+    {"id": "D02", "kind": "duplicate", "duplicate_of": [4], "relevant": [4], "questions": [
+      "Jakie koszty poniosło miasto Bydgoszcz w 2024 roku za odbiór i zagospodarowanie śmieci komunalnych?",
+      "Ile ton odpadów segregowanych zebrano w Bydgoszczy w 2024 roku, osobno dla papieru, szkła, plastiku i odpadów bio?"]},
+    {"id": "D03", "kind": "duplicate", "duplicate_of": [5], "relevant": [5], "questions": [
+      "Ile drzew wycięto w Bydgoszczy w 2024 roku na podstawie zezwoleń Prezydenta Miasta?",
+      "Ile wyniosły łącznie opłaty za wycinkę drzew pobrane przez miasto w 2024 roku?"]},
+    {"id": "D04", "kind": "duplicate", "duplicate_of": [9], "relevant": [9], "questions": [
+      "Jaki był dług Miasta Bydgoszczy na koniec 2024 roku?",
+      "Ile miasto spłaciło w 2024 roku z tytułu kredytów, pożyczek i obligacji?"]},
+    {"id": "D05", "kind": "duplicate", "duplicate_of": [12], "relevant": [12], "questions": [
+      "Ile par zawarło związek małżeński przed kierownikiem bydgoskiego Urzędu Stanu Cywilnego w 2024 roku?"]},
+    {"id": "D06", "kind": "duplicate", "duplicate_of": [14], "relevant": [14], "questions": [
+      "Proszę o listę organizacji pozarządowych, które w 2024 roku otrzymały dotacje z budżetu Bydgoszczy, z podaniem realizowanego zadania i kwoty dotacji."]},
+    {"id": "D07", "kind": "duplicate", "duplicate_of": [18], "relevant": [18], "questions": [
+      "Ile etatów było w Urzędzie Miasta Bydgoszczy na koniec 2024 roku?",
+      "Jakie było średnie wynagrodzenie brutto urzędników Urzędu Miasta Bydgoszczy w 2024 roku?"]},
+    {"id": "D08", "kind": "duplicate", "duplicate_of": [26], "relevant": [26], "questions": [
+      "Ile mieszkań komunalnych posiadało Miasto Bydgoszcz w 2024 roku?",
+      "Ile osób czekało pod koniec 2024 roku na przydział lokalu komunalnego w Bydgoszczy?"]},
+
+    {"id": "N01", "kind": "duplicate_new_period", "duplicate_of": [1], "relevant": [1], "questions": [
+      "Liczba uczniów w poszczególnych szkołach podstawowych prowadzonych przez Miasto Bydgoszcz w roku szkolnym 2025/2026.",
+      "Liczba oddziałów klasowych w poszczególnych szkołach podstawowych w Bydgoszczy w roku szkolnym 2025/2026."]},
+    {"id": "N02", "kind": "duplicate_new_period", "duplicate_of": [4], "relevant": [4], "questions": [
+      "Koszt odbioru i zagospodarowania odpadów komunalnych poniesiony przez Miasto Bydgoszcz w 2025 r.",
+      "Ilość odpadów zebranych selektywnie w Bydgoszczy w 2025 r. w tonach, z podziałem na frakcje."]},
+    {"id": "N03", "kind": "duplicate_new_period", "duplicate_of": [10], "relevant": [10], "questions": [
+      "Ile wyniosły wpływy z podatku od nieruchomości do budżetu Bydgoszczy w 2025 roku?",
+      "Ile decyzji o umorzeniu zaległości podatkowych wydał Prezydent Miasta Bydgoszczy w 2025 roku?"]},
+    {"id": "N04", "kind": "duplicate_new_period", "duplicate_of": [11], "relevant": [11], "questions": [
+      "Lista projektów wybranych do realizacji w Bydgoskim Budżecie Obywatelskim na 2026 r. wraz z ich kosztami.",
+      "Stan realizacji projektów Bydgoskiego Budżetu Obywatelskiego z edycji na 2025 r."]},
+    {"id": "N05", "kind": "duplicate_new_period", "duplicate_of": [13], "relevant": [13], "questions": [
+      "Liczba osób zameldowanych na pobyt stały w Bydgoszczy według stanu na 31 grudnia 2025 r., z podziałem na osiedla."]},
+    {"id": "N06", "kind": "duplicate_new_period", "duplicate_of": [15], "relevant": [15], "questions": [
+      "Ile kosztowała organizacja Dni Bydgoszczy w 2025 roku?",
+      "Jakie honoraria otrzymali artyści występujący na koncertach podczas Dni Bydgoszczy 2025?"]},
+    {"id": "N07", "kind": "duplicate_new_period", "duplicate_of": [22], "relevant": [22], "questions": [
+      "Liczba zezwoleń na sprzedaż napojów alkoholowych wydanych przez Prezydenta Miasta Bydgoszczy w 2025 r.",
+      "Liczba punktów sprzedaży napojów alkoholowych działających w Bydgoszczy w 2025 r."]},
+
+    {"id": "P01", "kind": "partial", "duplicate_of": [], "relevant": [1], "questions": [
+      "Liczba uczniów w poszczególnych szkołach podstawowych w Bydgoszczy w roku szkolnym 2024/2025.",
+      "Liczba nauczycieli zatrudnionych w bydgoskich szkołach podstawowych w roku szkolnym 2024/2025, w przeliczeniu na etaty."]},
+    {"id": "P02", "kind": "partial", "duplicate_of": [], "relevant": [9], "questions": [
+      "Wysokość zadłużenia Miasta Bydgoszczy na koniec 2024 r.",
+      "Planowane wydatki majątkowe Miasta Bydgoszczy na 2025 r. z podziałem na największe inwestycje."]},
+    {"id": "P03", "kind": "partial", "duplicate_of": [], "relevant": [19], "questions": [
+      "Całkowity koszt budowy Trasy Uniwersyteckiej w Bydgoszczy.",
+      "Liczba wypadków drogowych na Trasie Uniwersyteckiej od jej otwarcia."]},
+    {"id": "P04", "kind": "partial", "duplicate_of": [], "relevant": [6], "questions": [
+      "Liczba pozwoleń na budowę wydanych przez Prezydenta Miasta Bydgoszczy w 2024 r.",
+      "Liczba decyzji nakazujących rozbiórkę obiektów budowlanych wydanych w Bydgoszczy w 2024 r."]},
+    {"id": "P05", "kind": "partial", "duplicate_of": [], "relevant": [25], "questions": [
+      "Ile nowych drzew posadziło Miasto Bydgoszcz w 2024 roku?",
+      "Ile ławek w parkach miejskich wymieniono lub zamontowano w Bydgoszczy w 2024 roku?"]},
+    {"id": "P06", "kind": "partial", "duplicate_of": [], "relevant": [18], "questions": [
+      "Liczba etatów w Urzędzie Miasta Bydgoszczy na koniec 2024 r.",
+      "Liczba osób współpracujących z Urzędem Miasta Bydgoszczy na podstawie umów zlecenia lub umów o dzieło w 2024 r."]},
+    {"id": "P07", "kind": "partial", "duplicate_of": [], "relevant": [3], "questions": [
+      "Liczba miejsc w żłobkach miejskich w Bydgoszczy w 2024 r.",
+      "Wysokość miesięcznej opłaty za pobyt dziecka w żłobku miejskim w Bydgoszczy w 2024 r."]},
+    {"id": "P08", "kind": "partial", "duplicate_of": [], "relevant": [22], "questions": [
+      "Liczba zezwoleń na sprzedaż napojów alkoholowych wydanych w Bydgoszczy w 2024 r.",
+      "Liczba kontroli przestrzegania zasad sprzedaży alkoholu przeprowadzonych przez Miasto Bydgoszcz w 2024 r."]},
+
+    {"id": "R01", "kind": "related", "duplicate_of": [], "relevant": [2], "questions": [
+      "Średnie wynagrodzenie nauczycieli w szkołach podstawowych prowadzonych przez Miasto Bydgoszcz w 2024 r., z podziałem na stopnie awansu zawodowego."]},
+    {"id": "R02", "kind": "related", "duplicate_of": [], "relevant": [7], "questions": [
+      "Kopia decyzji o warunkach zabudowy wydanej dla działki nr 22/1 w obrębie 205 przy ul. Grunwaldzkiej w Bydgoszczy."]},
+    {"id": "R03", "kind": "related", "duplicate_of": [], "relevant": [17], "questions": [
+      "Wydatki Urzędu Miasta Bydgoszczy na zewnętrzne usługi doradcze i eksperckie w 2024 r., z nazwami wykonawców."]},
+    {"id": "R04", "kind": "related", "duplicate_of": [], "relevant": [21], "questions": [
+      "Wyniki przetargu na dostawę gazu ziemnego do budynków miejskich w Bydgoszczy na 2024 r. oraz cena za 1 MWh gazu."]},
+    {"id": "R05", "kind": "related", "duplicate_of": [], "relevant": [30], "questions": [
+      "Wykaz obiektów z gminnej ewidencji zabytków położonych na osiedlu Śródmieście w Bydgoszczy."]},
+    {"id": "R06", "kind": "related", "duplicate_of": [], "relevant": [16], "questions": [
+      "Wydatki Miasta Bydgoszczy na płatne kampanie promocyjne w mediach społecznościowych (Facebook, Instagram) w 2024 r."]},
+    {"id": "R07", "kind": "related", "duplicate_of": [], "relevant": [29], "questions": [
+      "Lokalizacje kamer monitoringu miejskiego na terenie Starego Miasta w Bydgoszczy."]},
+    {"id": "R08", "kind": "related", "duplicate_of": [], "relevant": [8], "questions": [
+      "Wykaz nieruchomości gminnych w Bydgoszczy przeznaczonych do dzierżawy lub najmu w 2025 r."]},
+
+    {"id": "U01", "kind": "unrelated", "duplicate_of": [], "relevant": [], "questions": [
+      "Rozkład jazdy tramwajów linii nr 2 w Bydgoszczy w niedziele i święta."]},
+    {"id": "U02", "kind": "unrelated", "duplicate_of": [], "relevant": [], "questions": [
+      "Liczba interwencji Policji na Starym Rynku w Bydgoszczy w 2024 r."]},
+    {"id": "U03", "kind": "unrelated", "duplicate_of": [], "relevant": [], "questions": [
+      "Liczba pacjentów przyjętych na szpitalny oddział ratunkowy Szpitala Uniwersyteckiego nr 1 w Bydgoszczy w 2024 r."]},
+    {"id": "U04", "kind": "unrelated", "duplicate_of": [], "relevant": [], "questions": [
+      "Średnia wysokość emerytury wypłacanej przez oddział ZUS w Bydgoszczy w 2024 r."]},
+    {"id": "U05", "kind": "unrelated", "duplicate_of": [], "relevant": [], "questions": [
+      "Harmonogram modernizacji linii kolejowej Bydgoszcz – Toruń prowadzonej przez PKP Polskie Linie Kolejowe."]},
+    {"id": "U06", "kind": "unrelated", "duplicate_of": [], "relevant": [], "questions": [
+      "Liczba ofert pracy zgłoszonych do Powiatowego Urzędu Pracy w Bydgoszczy w 2024 r.",
+      "Stopa bezrobocia rejestrowanego w Bydgoszczy na koniec 2024 r."]},
+    {"id": "U07", "kind": "unrelated", "duplicate_of": [], "relevant": [], "questions": [
+      "Wyniki pomiarów jakości wody w kąpieliskach na rzece Brdzie w sezonie letnim 2024 r."]},
+
+    {"id": "H01", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "shares 'ul. Fordońska' with case 7", "questions": [
+      "Liczba kolizji i wypadków drogowych na ul. Fordońskiej w Bydgoszczy w 2024 r."]},
+    {"id": "H02", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "shares 'hala Łuczniczka' with case 20", "questions": [
+      "Ceny biletów na mecze siatkówki rozgrywane w hali Łuczniczka w Bydgoszczy w sezonie 2024/2025."]},
+    {"id": "H03", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "marriages (USC, case 12) vs divorces (court)", "questions": [
+      "Liczba rozwodów orzeczonych przez Sąd Okręgowy w Bydgoszczy w 2024 r."]},
+    {"id": "H04", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "shares 'osiedla Bydgoszczy' with case 13", "questions": [
+      "Średnia cena metra kwadratowego mieszkań na rynku wtórnym w poszczególnych osiedlach Bydgoszczy w 2024 r."]},
+    {"id": "H05", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "uczniowie szkół podstawowych (case 1) vs studenci uczelni", "questions": [
+      "Liczba studentów Uniwersytetu Kazimierza Wielkiego w Bydgoszczy w roku akademickim 2024/2025."]},
+    {"id": "H06", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "debt of the city (case 9) vs debt of a municipal water company", "questions": [
+      "Wysokość zadłużenia spółki Miejskie Wodociągi i Kanalizacja w Bydgoszczy na koniec 2024 r."]},
+    {"id": "H07", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "shares 'Trasa Uniwersytecka' with case 19", "questions": [
+      "Natężenie ruchu samochodowego na Trasie Uniwersyteckiej w godzinach szczytu w 2024 r."]},
+    {"id": "H08", "kind": "hard_negative", "duplicate_of": [], "relevant": [], "note": "budget of the city (case 11) vs budget of the voivodeship", "questions": [
+      "Wysokość budżetu Województwa Kujawsko-Pomorskiego na 2025 r., w tym wydatki na drogi wojewódzkie."]}
+  ]
+}

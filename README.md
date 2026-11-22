@@ -235,6 +235,20 @@ The full organizer sample set is kept locally in `.local/data/` (gitignored) —
 request/reply pairs of the archive are committed in `data/seed/archive/`; `Wniosek - BKS.IV.1431.599.2026`
 (no reply) is not in the archive and is a good test upload: it should be flagged `DUPLICATE` of 307/2025.
 
+### Evaluating similar-case search (`data/eval/similar_cases.json`)
+
+Labelled evaluation set (30 archive cases, 46 queries: duplicates, newer-period duplicates, partial, related,
+unrelated, hard negatives) and a script that runs `analyze_request` on it with the real embedder and an
+in-memory Qdrant — no LLM calls, nothing is written to your Qdrant:
+
+```bash
+uv run --env-file .env python scripts/eval_similar_cases.py            # metrics + failures
+uv run --env-file .env python scripts/eval_similar_cases.py --all --duplicate 0.95 --low 0.93
+```
+
+It is an evaluation set: tune on a different one, report here. Baseline and analysis:
+`docs/second_part_engineering_plan.md` §3.4.
+
 ### Archive seed (`scripts/seed_all.py`)
 
 The demo archive = the 9 sample request/reply pairs in `data/seed/archive/` (all `Response_Sent`). On every
