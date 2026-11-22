@@ -225,6 +225,9 @@ class UserRepository:
     def get_by_id(self, user_id: int) -> User | None:
         return self.session.get(User, user_id)
 
+    def get_all(self) -> list[User]:
+        return list(self.session.exec(select(User).order_by(User.initials)).all())
+
     def get_by_initials(self, initials: str) -> User | None:
         return self.session.exec(select(User).where(User.initials == initials)).first()
 

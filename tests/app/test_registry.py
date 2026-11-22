@@ -12,9 +12,12 @@ from app.services.registry import (
     advance_case_status,
     complete_department_request,
     delete_department_request,
+    load_analysis,
     mark_case_query,
     mark_department_request_sent,
     request_case_analysis,
+    suggest_case_number,
+    update_case_metadata,
 )
 from contracts.enums import CaseStatus, FileType, RequestStatus
 from contracts.models import AnalyzeInput, AnalyzeResult, RequestQuestion
@@ -108,6 +111,7 @@ class _FakeAIService:
 def test_request_case_analysis_with_mock_sets_topic_status_and_requests(session, tmp_path):
     case_id = _add_case(session, CaseStatus.NEW)
     ids = _add_departments(session, "WE")
+    (tmp_path / "a.pdf").write_bytes(b"%PDF-1.4")
 
     case = request_case_analysis(
         case_id,
@@ -121,8 +125,10 @@ def test_request_case_analysis_with_mock_sets_topic_status_and_requests(session,
         AnalyzeInput(case_id=case_id, text="")
     ).summary
     requests = DepartmentRequestRepository(session).get_dep_requests_by_case_id(case_id)
-    assert len(requests) == 2
-    assert {r.department_id for r in requests} == {ids["WE"]}
+    assert len(requests) == 1  # one request per department, listing its questions
+    assert requests[0].department_id == ids["WE"] and requests[0].request_text.startswith("1. ")
+    assert "\n2. " in requests[0].request_text
+    assert load_analysis(case).summary == case.topic
     assert {r.request_status for r in requests} == {RequestStatus.SUGGESTED}
     history = session.exec(select(CaseHistory).where(CaseHistory.case_id == case_id)).all()
     assert [row.status for row in history] == [CaseStatus.PROCESSED]
@@ -146,11 +152,10 @@ def test_request_case_analysis_creates_one_request_per_known_department(session,
     assert service.inputs[0].filename == "a.pdf"
     assert service.inputs[0].data == b"%PDF-1.4"
     requests = DepartmentRequestRepository(session).get_dep_requests_by_case_id(case_id)
-    assert [(r.department_id, r.request_text) for r in requests] == [
-        (ids["WE"], "Q1"),
-        (ids["WF"], "Q1"),
-        (ids["WF"], "Q2"),
-    ]
+    assert sorted((r.department_id, r.request_text) for r in requests) == sorted([
+        (ids["WE"], "1. Q1"),
+        (ids["WF"], "1. Q1\n2. Q2"),
+    ])
 
 
 def test_request_case_analysis_rejects_non_new_case(session):
@@ -249,3 +254,41 @@ def test_mark_case_query_rejects_other_statuses(session, status):
 def test_mark_case_query_unknown_case(session):
     with pytest.raises(LookupError):
         mark_case_query(999, date(2027, 1, 15), session=session)
+
+
+def test_request_case_analysis_missing_file_raises_and_keeps_case_new(session, tmp_path):
+    case_id = _add_case(session, CaseStatus.NEW)
+    with pytest.raises(FileNotFoundError):
+        request_case_analysis(case_id, session=session, ai_service=_FakeAIService([]), applications_dir=tmp_path)
+    assert CaseRepository(session).get_case_by_id(case_id).status == CaseStatus.NEW
+
+
+def test_suggest_case_number_uses_highest_of_the_year(session):
+    assert suggest_case_number(session, 2026) == "BKS.IV.1431.1.2026"
+    repo = CaseRepository(session)
+    for number in ("BKS.IV.1431.590.2026", "BKS.IV.1431.17.2026", "BKS.IV.1431.700.2025", "inny numer"):
+        repo.add_with_application(
+            Case(document_number=number, created_date=date(2026, 1, 1), response_deadline=date(2026, 1, 15)),
+            FileData(filename=f"{number}.pdf", file_type=FileType.APPLICATION),
+        )
+    assert suggest_case_number(session, 2026) == "BKS.IV.1431.591.2026"
+    assert suggest_case_number(session, 2025) == "BKS.IV.1431.701.2025"
+
+
+def test_update_case_metadata_validates_and_writes_history(session):
+    case_id = _add_case(session, CaseStatus.NEW)
+    other = _add_case(session, CaseStatus.NEW)
+    update_case_metadata(other, document_number="BKS.IV.1431.5.2026", created_date=date(2026, 11, 10),
+                         response_deadline=date(2026, 11, 24), assignee_id=None, topic=None, session=session)
+    with pytest.raises(ValueError, match="already used"):
+        update_case_metadata(case_id, document_number="BKS.IV.1431.5.2026", created_date=date(2026, 11, 10),
+                             response_deadline=date(2026, 11, 24), assignee_id=None, topic=None, session=session)
+    with pytest.raises(ValueError, match="earlier"):
+        update_case_metadata(case_id, document_number=None, created_date=date(2026, 11, 10),
+                             response_deadline=date(2026, 11, 1), assignee_id=None, topic=None, session=session)
+    case = update_case_metadata(case_id, document_number=" BKS.IV.1431.6.2026 ", created_date=date(2026, 11, 12),
+                                response_deadline=date(2026, 11, 26), assignee_id=None, topic="  Temat ",
+                                session=session)
+    assert case.document_number == "BKS.IV.1431.6.2026" and case.topic == "Temat"
+    history = session.exec(select(CaseHistory).where(CaseHistory.case_id == case_id)).all()
+    assert history[-1].document_number == "BKS.IV.1431.6.2026"

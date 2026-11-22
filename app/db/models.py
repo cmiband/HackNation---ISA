@@ -47,6 +47,8 @@ class FileData(SQLModel, table=True):
     filename: str
     created_date: datetime = Field(default_factory=utc_now)  # UTC upload/generation time
     file_type: FileType
+    # DEPARTMENT_REPLY files: the case they belong to (no FK constraint: Case already references file_data)
+    case_id: int | None = Field(default=None, index=True)
 
 
 class Case(SQLModel, table=True):
@@ -62,6 +64,8 @@ class Case(SQLModel, table=True):
     application_id: int = Field(foreign_key="file_data.id")  # FileType.APPLICATION
     response_id: int | None = Field(default=None, foreign_key="file_data.id")  # FileType.RESPONSE
     assignee_id: int | None = Field(default=None, foreign_key="user.id")
+    analysis_json: str | None = None  # contracts.models.AnalyzeResult of the last analysis (JSON)
+    draft_json: str | None = None  # contracts.models.DraftResult of the current reply draft (JSON, edited body)
 
     application: FileData = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[Case.application_id]"}

@@ -17,6 +17,7 @@ from app.db.models import Case, FileData
 from app.db.repository import CaseRepository
 from app.services.deadlines import response_deadline
 from app.services.file_storage import save_uploaded_file
+from app.services.registry import suggest_case_number
 from app.ui.current_user import get_current_user_id
 from contracts.enums import CaseStatus, FileType
 
@@ -102,6 +103,7 @@ def load_files(
             try:
                 cases.add_with_application(
                     Case(
+                        document_number=suggest_case_number(db, today.year),
                         created_date=today,
                         response_deadline=response_deadline(today),
                         status=CaseStatus.NEW,

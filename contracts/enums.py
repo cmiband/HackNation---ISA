@@ -13,6 +13,7 @@ class CaseStatus(StrEnum):
 class FileType(StrEnum):
     APPLICATION = "Application"
     RESPONSE = "Response"
+    DEPARTMENT_REPLY = "Department_Reply"  # reply of a unit to the office's inquiry, attached to a case
 
 
 class RequestStatus(StrEnum):
