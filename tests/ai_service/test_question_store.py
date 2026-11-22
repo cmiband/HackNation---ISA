@@ -39,6 +39,26 @@ def test_hybrid_search_groups_by_case_and_excludes_current_case(store):
     assert 3 not in {h.case_id for h in hits}
     assert hits[0].matches[0].archived == "liczba uczniów w szkołach"
     assert hits[0].matches[0].query == "ilu jest uczniów"
+    assert hits[0].matches[0].archived_case_id == 1
+    assert hits[0].matches[0].archived_query_id == 1
+
+
+def test_upsert_stores_query_id_and_file_id_in_payload():
+    store = QuestionStore(QdrantClient(":memory:"), collection="test_payload", dense_size=3)
+    store.upsert_case(
+        42,
+        [
+            QuestionVectors(question="Pytanie 1", dense=[1, 0, 0], query_id=1, file_id="wniosek_42.pdf"),
+            QuestionVectors(question="Pytanie 2", dense=[0, 1, 0], query_id=2, file_id="wniosek_42.pdf"),
+        ],
+    )
+    hits = store.search_similar_cases([QuestionVectors(question="Szukane", dense=[0, 1, 0], query_id=7)], limit=1)
+    assert len(hits) == 1
+    m = hits[0].matches[0]
+    assert m.query_id == 7
+    assert m.archived_case_id == 42
+    assert m.archived_query_id == 2
+    assert m.file_id == "wniosek_42.pdf"
 
 
 def test_dense_only_search_when_query_has_no_sparse_vector(store):

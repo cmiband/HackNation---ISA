@@ -18,6 +18,8 @@ class QuestionVectors:
     question: str
     dense: list[float]
     sparse: SparseVector | None = None
+    query_id: int | None = None
+    file_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -25,6 +27,10 @@ class MatchedQuestion:
     query: str  # question of the new request
     archived: str  # matching question stored for the similar case
     score: float
+    query_id: int | None = None
+    archived_case_id: int | None = None
+    archived_query_id: int | None = None
+    file_id: str | None = None
 
 
 @dataclass(frozen=True)

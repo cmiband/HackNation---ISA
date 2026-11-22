@@ -222,7 +222,7 @@ read-only summary table, accept/reject — all files are treated as Applications
   - `LLM_MODEL` — Pydantic AI model string `<provider>:<model>` (e.g. `openai:…`, `anthropic:…`, `google:…`); the API key is read from the provider's standard variable (`GEMINI_API_KEY`, `OPENAI_API_KEY`, …). A comma-separated list is a **fallback chain** (Pydantic AI `FallbackModel`): on an API error, e.g. HTTP 429 when the free-tier daily quota (~20 requests/model) is used up, the next model is used. Default chain in `.env.example`: Gemini Flash models, then Flash Lite (~500 requests/day).
   - `LLM_BASE_URL` + `LLM_API_KEY` (optional) — OpenAI-compatible endpoint (Ollama, vLLM, llama.cpp server); then `LLM_MODEL` is a plain model name. This is the production switch to a local model.
   - `LLM_PROVIDER=none` (or no `LLM_MODEL`) — LLM disabled, deterministic fallbacks.
-- **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers.
+- **Implemented — question extraction** (`question_extraction.py`): `QuestionExtractor.from_env().extract(request_text)` → `RequestQuestions{questions: list[str]}`. Drops greetings, legal-basis citations, signatures, contact data and delivery preferences; each item is a self-contained question/request in the original language, used for embedding and per-question vector search. Without an LLM it returns the whole text as one item. Thread-safe (shareable via `st.cache_resource`); `aextract` for async callers. (`infer_parent_file_id` extracts case signatures like `BKS.IV.1431.18.2026` from filenames for scripts.)
 - **Implemented — OCR** (`ocr.py`): `LLMOcr.transcribe(pdf_bytes)` sends a scanned PDF to the multimodal LLM (Gemini) and returns the verbatim text.
 
 ### 6.3a Document Parser (`ai_service/parsing/`) — implemented
@@ -238,16 +238,21 @@ read-only summary table, accept/reject — all files are treated as Applications
   - **Bielik 11B** (SpeakLeash / ACK Cyfronet AGH) — v3.1 on Ollama (`SpeakLeash/bielik-11b-v3.1-instruct:Q4_K_M`, ~6.7 GB); v2.6 is the more battle-tested release.
 
 ### 6.4 Embedding Encoder & Vector Store (`ai_service/embeddings/`, `ai_service/vector_store/`)
-- **Embeddings:** local sentence-transformers model from `EMBEDDING_MODEL` (e.g. `intfloat/multilingual-e5-base`; `bge-m3` for higher quality, larger image).
-- **Embeddings (other dev):** `sdadas/mmlw-roberta-base` (768-dim dense; query prefix `"zapytanie: "`) + BM25 sparse vectors.
+- **Implemented — Embeddings** (`ai_service/embeddings/`):
+  - `EmbeddingSettings.from_env()` reads `EMBEDDING_MODEL` (default `sdadas/mmlw-roberta-base`, 768-dim; set `DENSE_VECTOR_SIZE` to match if changing the model), `EMBEDDING_DEVICE`, `EMBEDDING_NORMALIZE`, and optional `EMBEDDING_QUERY_PREFIX`/`EMBEDDING_DOC_PREFIX`.
+  - `QuestionEmbedder` produces `QuestionVectors(question, dense, sparse)` directly from each extracted question string: `dense` is encoded with the local SentenceTransformer (`sdadas/mmlw-roberta-base`), and `sparse` is encoded with `SparseBm25Encoder` (BM25 TF with 31-bit CRC32 token IDs, matching Qdrant's `Modifier.IDF`).
 - **Vector store — implemented** (`ai_service/vector_store/`): **Qdrant** in a separate Compose service; details in `project_structure_and_docker.md` §5.
-  - `QuestionStore.from_env()`; `upsert_case(case_id, [QuestionVectors(question, dense, sparse)])` (replaces the case's questions), `delete_case(case_id)`, `search_similar_cases(queries, limit, exclude_case_id)` → `[SimilarCaseHit{case_id, score, matches[]}]`, `count_points()`, `reset()`, `healthy()`.
-  - Payload only `case_id` (= SQLite `Case.Id`) + `question`; search over the whole collection.
+  - `QuestionStore.from_env()`; `upsert_case(case_id, [QuestionVectors(question, dense, sparse, query_id, file_id)], file_id=...)` (replaces the case's questions), `delete_case(case_id)`, `search_similar_cases(queries, limit, exclude_case_id)` → `[SimilarCaseHit{case_id, score, matches[]}]`, `count_points()`, `reset()`, `healthy()`.
+  - Payload stores `case_id` (= SQLite `Case.Id`), `query_id` (1-based question index inside the case), `question`, and optional `file_id`; search over the whole collection.
   - Callers pass vectors (plain dataclasses, no `qdrant_client` import needed). Ingestion/seeding from SQLite: other teammate.
 
 ### 6.5 Hybrid Retrieval (`ai_service/retrieval/`)
+- **Implemented — Similar-case, seeding & request matching** (`ai_service/retrieval/similar_cases.py`):
+  - `seed_requests_from_dir(directory=".local/wnioski")` loads request files, generates `Query_Id`s during extraction (`QuestionExtractor.extract_queries`), embeds with `QuestionEmbedder`, and stores `(case_id, query_id, file_id, question)` in Qdrant.
+  - `search_and_index_request(case_id, file_path)` searches Qdrant for similar archived questions (returning `list[QuestionPairMatch]` with `query_id`, `query_question`, `matched_case_id`, `matched_query_id`, `matched_question`, `score`, `file_id`) and saves the new request's questions into Qdrant.
 - Dense vectors + BM25, fused with Reciprocal Rank Fusion **inside Qdrant** (prefetch + RRF), grouped by `case_id`, over the whole archive (no year filter). Scores are rank-fusion scores (higher = more similar); map them to the contract's `0.0`–`1.0` in `AIService`.
 - No lemmatizer / spaCy in the MVP: dense embeddings handle Polish inflection; BM25 on lowercased tokens mainly catches exact identifiers (street names, plot numbers, resolution numbers).
+- Local test-data seeding & search CLI: `scripts/seed_qdrant_local.py` extracts/caches questions from `.local/Wniosek*` into `.local/extracted_questions.json`, indexes them into Qdrant, and supports `--search` / `--search-all`.
 
 ### 6.6 Department Routing (`ai_service/routing/`)
 - **Implemented — LLM routing** (`router.py`): `DepartmentRouter.from_env().route(questions: list[str])` → `RoutingResult{questions: [QuestionRouting{question, departments: list[str]}]}` — department **codes only**, per question, most relevant first; `result.all_departments()` gives the unique codes for the whole request. One LLM call per request (all questions at once).

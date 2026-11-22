@@ -13,6 +13,7 @@ Usage:
 
 import uuid
 from collections.abc import Sequence
+from typing import Any
 
 from qdrant_client import QdrantClient, models
 
@@ -65,17 +66,33 @@ class QuestionStore:
 
     # --- write ------------------------------------------------------------------------------------------
 
-    def upsert_case(self, case_id: int, items: Sequence[QuestionVectors]) -> int:
+    def upsert_case(
+        self,
+        case_id: int,
+        items: Sequence[QuestionVectors],
+        *,
+        file_id: str | None = None,
+    ) -> int:
         """Store the questions of one case, replacing any previous ones. Returns the number of points."""
         self.delete_case(case_id)
-        points = [
-            models.PointStruct(
-                id=str(uuid.uuid5(_ID_NAMESPACE, f"{case_id}:{i}")),
-                vector=self._vectors(item),
-                payload={"case_id": case_id, "question": item.question},
+        points = []
+        for idx, item in enumerate(items, start=1):
+            q_id = item.query_id if item.query_id is not None else idx
+            resolved_file_id = item.file_id if item.file_id is not None else file_id
+            payload: dict[str, Any] = {
+                "case_id": case_id,
+                "query_id": q_id,
+                "question": item.question,
+            }
+            if resolved_file_id is not None:
+                payload["file_id"] = resolved_file_id
+            points.append(
+                models.PointStruct(
+                    id=str(uuid.uuid5(_ID_NAMESPACE, f"{case_id}:{q_id}")),
+                    vector=self._vectors(item),
+                    payload=payload,
+                )
             )
-            for i, item in enumerate(items)
-        ]
         if points:
             self._client.upsert(self.collection, points, wait=True)
         return len(points)
@@ -131,8 +148,17 @@ class QuestionStore:
             for group in result.groups:
                 case_id = int(group.id)
                 for hit in group.hits:
+                    payload = hit.payload or {}
                     matches.setdefault(case_id, []).append(
-                        MatchedQuestion(query=q.question, archived=hit.payload["question"], score=hit.score)
+                        MatchedQuestion(
+                            query=q.question,
+                            archived=payload["question"],
+                            score=hit.score,
+                            query_id=q.query_id,
+                            archived_case_id=case_id,
+                            archived_query_id=payload.get("query_id"),
+                            file_id=payload.get("file_id"),
+                        )
                     )
                     best[case_id] = max(best.get(case_id, float("-inf")), hit.score)
 

@@ -8,6 +8,7 @@ Usage:
     router.directory.by_code["WE"].name / .email         # details for the UI
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -78,26 +79,26 @@ class DepartmentRouter:
     def uses_llm(self) -> bool:
         return self._agent is not None
 
-    def route(self, questions: list[str]) -> RoutingResult:
-        questions = [q.strip() for q in questions if q.strip()]
-        if not questions or self._agent is None:
+    def route(self, questions: Sequence[str]) -> RoutingResult:
+        texts = [q.strip() for q in questions if q.strip()]
+        if not texts or self._agent is None:
             # No LLM: no suggestion (deterministic k-NN routing will plug in here).
-            return RoutingResult(questions=[QuestionRouting(question=q, departments=[]) for q in questions])
+            return RoutingResult(questions=[QuestionRouting(question=q, departments=[]) for q in texts])
 
         prompt = (
             "Pytania wnioskodawcy:\n"
-            + "\n".join(f"{i}. {q}" for i, q in enumerate(questions))
+            + "\n".join(f"{i}. {q}" for i, q in enumerate(texts))
             + "\n\nJednostki Urzędu Miasta Bydgoszczy:\n\n"
             + self.directory.describe()
         )
-        deps = _Deps(len(questions), frozenset(self.directory.by_code))
+        deps = _Deps(len(texts), frozenset(self.directory.by_code))
         output = self._agent.run_sync(prompt, deps=deps).output
 
         by_index = {r.question_index: r.departments for r in output.routes}
         return RoutingResult(
             questions=[
                 QuestionRouting(question=q, departments=list(dict.fromkeys(by_index.get(i, []))))
-                for i, q in enumerate(questions)
+                for i, q in enumerate(texts)
             ]
         )
 
