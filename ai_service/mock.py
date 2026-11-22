@@ -4,6 +4,8 @@ from contracts.enums import TriageKind
 from contracts.models import (
     AnalyzeInput,
     AnalyzeResult,
+    DraftInput,
+    DraftResult,
     Health,
     QuestionMatch,
     RequestQuestion,
@@ -45,6 +47,21 @@ class MockAIService:
                 duplicate_case_ids=[1],
                 reason="(mock) Practically the same questions were already handled in an earlier case.",
             ),
+        )
+
+    def draft_response(self, input_data: DraftInput) -> DraftResult:
+        body = (
+            "w odpowiedzi na wniosek o udostępnienie informacji publicznej w zakresie liczby uczniów w szkołach "
+            "podstawowych, na podstawie informacji przygotowanych przez komórkę merytoryczną, tj. Wydział Edukacji "
+            "i Sportu Urzędu Miasta Bydgoszczy, uprzejmie informuję, co następuje.\n"
+            "Ad 1\nW roku szkolnym 2024/2025 do szkół podstawowych prowadzonych przez Miasto Bydgoszcz uczęszczało "
+            "21 437 uczniów.\nAd 2\n[brak odpowiedzi komórki merytorycznej]"
+        )
+        return DraftResult(
+            body=body,
+            values_to_verify=["2024/2025", "21 437", "[brak odpowiedzi komórki merytorycznej]"],
+            unanswered_questions=[2] if len(input_data.questions) > 1 else [],
+            notes="(mock) Brak danych o cudzoziemcach w przekazanych dokumentach.",
         )
 
     def delete_case(self, case_id: int) -> None:

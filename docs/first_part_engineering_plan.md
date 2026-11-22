@@ -68,7 +68,8 @@ for summary, questions, departments, similar cases and triage, made after the of
 
 | Method | Input | Output |
 |--------|-------|--------|
-| `analyze_request` | `AnalyzeInput {case_id, filename + data \| text}` | `AnalyzeResult {case_id, text, parse_method, summary, subject, applicant, letter_date, questions[{text, departments}], suggested_departments, similar_cases[], triage, warnings}` |
+| `analyze_request` | `AnalyzeInput {case_id, filename + data \| text}` | `AnalyzeResult {case_id, text, parse_method, summary, subject, applicant, letter_date, questions[{text, departments, external_body_id}], suggested_departments, similar_cases[], triage, warnings, redirect_draft}` |
+| `draft_response` | `DraftInput {questions, documents[DocumentInput], archived_reply?}` | `DraftResult {body, values_to_verify, unanswered_questions, period_differs, notes, warnings}` (body only) |
 | `delete_case` | `case_id` | — |
 | `health` | — | `Health {status, vector_db_count, departments_loaded, llm_provider}` |
 
@@ -76,7 +77,7 @@ for summary, questions, departments, similar cases and triage, made after the of
 - `triage`: `{kind: Standard | Duplicate | Out_Of_Scope (contracts.enums.TriageKind), duplicate_case_ids, competent_body_id, reason}` — a proposal; the official decides.
 - `suggested_departments[]`: department **codes only** (e.g. `"WE"`), most relevant first (team decision). Subteam A looks up names/e-mails in `data/departments.json` (or the `Department` table seeded from it).
 - An unreadable file raises `contracts.protocol.DocumentReadError`; other failures give a partial result with `warnings`.
-- `ingest` was removed (archive cases are indexed by `analyze_request` too). Drafting methods are added with Part 2 (`second_part_engineering_plan.md` §6). Anonymization is **not** part of this protocol (see §6.7).
+- `ingest` was removed (archive cases are indexed by `analyze_request` too). `draft_response` is specified in `second_part_engineering_plan.md` §6.2. Anonymization is **not** part of this protocol (see §6.7).
 
 ### 4.2 Usage rules
 - Pydantic models live in `contracts/models.py`, enums in `contracts/enums.py`.
@@ -294,6 +295,7 @@ defaults to top 10 cases by nearest deadline with a "Show all cases" toggle for 
 - **Implemented — LLM routing** (`router.py`): `DepartmentRouter.from_env().route(questions: list[str])` → `RoutingResult{questions: [QuestionRouting{question, departments: list[str]}]}` — department **codes only**, per question, most relevant first; `result.all_departments()` gives the unique codes for the whole request. One LLM call per request (all questions at once).
 - Codes are validated against `departments.json`; unknown codes or a missing/extra question make the model retry (Pydantic AI output validator). Question text in the result is the original input, not LLM output. Empty list = no unit on the list fits (e.g. a municipal company).
 - Prompt: `ai_service/llm/prompts/route_departments.md` (BKS only for its own duties).
+- Per question also `external_body` (id from `data/external_bodies.json`) when only a municipal unit/company outside the City Hall holds the data — see `second_part_engineering_plan.md` §4.
 - Without an LLM: empty suggestions. Planned deterministic fallback: k-NN vote from departments of similar past cases + embedding match against department scopes.
 - Contract: `AnalyzeResult.suggested_departments` is `list[str]` of codes (= `RoutingResult.all_departments()`); `DepartmentSuggestion` was removed.
 

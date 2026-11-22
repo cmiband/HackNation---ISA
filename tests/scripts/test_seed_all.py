@@ -71,7 +71,7 @@ def test_index_archive_uses_cache_analyzes_the_rest_and_removes_stale(session, s
     cache = {"Wniosek - A.1.docx": {"summary": "Z cache.", "questions": [{"text": "Pytanie 1"}, {"text": "Pytanie 2"}]}}
     changed = seed_all.index_archive(session, service, cache, tmp_path, log=lambda m: None)
 
-    assert changed and cache["Wniosek - A.2.docx"]["questions"] == [{"text": "Pytanie z LLM.", "departments": []}]
+    assert changed and cache["Wniosek - A.2.docx"]["questions"] == [{"text": "Pytanie z LLM.", "departments": [], "external_body_id": None}]
     assert service.store.count_case_points(cached.id) == 2 and service.store.count_case_points(new.id) == 1
     assert service.store.case_ids() == {cached.id, new.id}
     topics = {c.document_number: c.topic for c in CaseRepository(session).get_all_cases()}

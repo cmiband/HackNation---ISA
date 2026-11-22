@@ -21,11 +21,13 @@ OUT_OF_SCOPE = the router found no unit for any question and there is no duplica
 
 import logging
 import os
+import re
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from threading import Lock
 
+from ai_service.drafting import ReplyDrafter, placeholders, redirect_body, template_body
 from ai_service.embeddings import QuestionEmbedder
 from ai_service.llm import RequestAnalysis, RequestAnalyzer
 from ai_service.llm.analysis import fallback_analysis
@@ -38,6 +40,9 @@ from contracts.enums import TriageKind
 from contracts.models import (
     AnalyzeInput,
     AnalyzeResult,
+    DocumentInput,
+    DraftInput,
+    DraftResult,
     Health,
     QuestionMatch,
     RequestQuestion,
@@ -85,11 +90,13 @@ class AIService:
         store: QuestionStore | None = None,
         triage: TriageSettings | None = None,
         llm_provider: str = "none",
+        drafter: ReplyDrafter | None = None,
     ) -> None:
         self.parser = parser
         self.analyzer = analyzer
         self.router = router
         self.embedder = embedder
+        self.drafter = drafter or ReplyDrafter(None)
         self.triage_settings = triage or TriageSettings()
         self.llm_provider = llm_provider
         self._store = store
@@ -106,6 +113,7 @@ class AIService:
             embedder=QuestionEmbedder.from_env(),
             triage=TriageSettings.from_env(),
             llm_provider=names[0] if names else "none",
+            drafter=ReplyDrafter.from_env(),
         )
 
     # --- protocol ---------------------------------------------------------------------------------------
@@ -139,6 +147,7 @@ class AIService:
         similar, duplicates = self._similar_cases(hits, len(questions))
         routing = self._route(questions, warnings)
         triage = self._triage(routing, duplicates)
+        redirect = self._redirect_draft(analysis.subject, triage) if triage.kind == TriageKind.OUT_OF_SCOPE else None
         self._index(case_id, questions, vectors, input_data.filename, warnings)
 
         log.info("analyze_request case=%s questions=%d took %.1fs", case_id, len(questions), time.perf_counter() - started)
@@ -150,10 +159,45 @@ class AIService:
             subject=analysis.subject,
             applicant=analysis.applicant,
             letter_date=analysis.letter_date,
-            questions=[RequestQuestion(text=q.question, departments=q.departments) for q in routing.questions],
+            questions=[
+                RequestQuestion(text=q.question, departments=q.departments, external_body_id=q.external_body)
+                for q in routing.questions
+            ],
             suggested_departments=routing.all_departments(),
             similar_cases=similar,
             triage=triage,
+            warnings=warnings,
+            redirect_draft=redirect,
+        )
+
+    def draft_response(self, input_data: DraftInput) -> DraftResult:
+        questions = [q.strip() for q in input_data.questions if q.strip()]
+        documents = [self._read_document(d) for d in input_data.documents]
+        archived = self._read_document(input_data.archived_reply) if input_data.archived_reply else None
+        warnings: list[str] = []
+        if not documents and not archived:
+            warnings.append("No documents and no archived reply: the body is a template to fill in.")
+            body = template_body(questions, [])
+            return DraftResult(
+                body=body,
+                values_to_verify=placeholders(body),
+                unanswered_questions=list(range(1, len(questions) + 1)),
+                warnings=warnings,
+            )
+        try:
+            out = self.drafter.draft(questions, documents, archived)
+        except Exception:
+            log.exception("reply drafting failed")
+            warnings.append("LLM unavailable: the documents are inserted as they are — edit the draft.")
+            body = template_body(questions, documents + ([archived] if archived else []))
+            return DraftResult(body=body, values_to_verify=placeholders(body), warnings=warnings)
+        values = [v for v in out.values_to_verify if v in out.body] + placeholders(out.body)
+        return DraftResult(
+            body=out.body,
+            values_to_verify=list(dict.fromkeys(values)),
+            unanswered_questions=sorted(set(out.unanswered)),
+            period_differs=out.period_differs,
+            notes=out.notes,
             warnings=warnings,
         )
 
@@ -194,6 +238,27 @@ class AIService:
             raise DocumentReadError(str(exc)) from exc
         return doc.text, doc.method
 
+    def _read_document(self, doc: DocumentInput) -> str:
+        if doc.text is not None:
+            return doc.text
+        try:
+            return _clean_text(self.parser.parse(doc.filename, doc.data or b"").text)
+        except DocumentParseError as exc:
+            raise DocumentReadError(str(exc)) from exc
+
+    def _redirect_draft(self, subject: str, triage: Triage) -> DraftResult:
+        competent = self.router.bodies.by_id.get(triage.competent_body_id) if triage.competent_body_id else None
+        body = redirect_body(subject, competent)
+        return DraftResult(
+            body=body,
+            values_to_verify=placeholders(body),
+            notes=(
+                f"Pismo przekierowujące do: {competent.name} (dane kontaktowe z BIP)."
+                if competent
+                else "Uzupełnij nazwę i dane kontaktowe właściwego podmiotu (spoza listy jednostek miejskich)."
+            ),
+        )
+
     def _analyze(self, text: str, warnings: list[str]) -> RequestAnalysis:
         try:
             return self.analyzer.analyze(text)
@@ -208,7 +273,7 @@ class AIService:
         except Exception:
             log.exception("department routing failed")
             warnings.append("Department suggestions are unavailable (LLM error).")
-            return DepartmentRouter(None, self.router.directory).route(questions)
+            return DepartmentRouter(None, self.router.directory, self.router.bodies).route(questions)
 
     def _similar_cases(
         self, hits: Sequence[SimilarCaseHit], question_count: int
@@ -253,9 +318,16 @@ class AIService:
             )
         no_department = bool(routing.questions) and not routing.all_departments()
         if self.router.uses_llm and no_department:
+            body_id = routing.competent_body()
+            body = self.router.bodies.by_id.get(body_id) if body_id else None
             return Triage(
                 kind=TriageKind.OUT_OF_SCOPE,
-                reason="No City Hall unit holds this information and no earlier case asked the same.",
+                competent_body_id=body_id,
+                reason=(
+                    f"No City Hall unit holds this information; it is held by {body.name}."
+                    if body
+                    else "No City Hall unit or municipal unit holds this information (e.g. a state body)."
+                ),
             )
         return Triage()
 
@@ -281,3 +353,10 @@ class AIService:
                 if self._store is None:
                     self._store = QuestionStore.from_env()
         return self._store
+
+
+def _clean_text(text: str) -> str:
+    """Collapse runs of spaces / blank lines from PDF extraction (letter-level gaps stay; the LLM fixes them)."""
+    text = re.sub(r"[ \t]+", " ", text)
+    return re.sub(r"\n\s*\n+", "\n\n", text).strip()
+

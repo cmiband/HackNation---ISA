@@ -137,6 +137,38 @@ status page. LLM, embedder or Qdrant failures never raise — the result is part
   courts). Fix planned: external bodies directory (`docs/second_part_engineering_plan.md` §4).
 - 2 LLM calls per request (+1 OCR for scans). First call loads the embedding model (a few seconds).
 
+### Draft reply (`service.draft_response`, `ai_service/drafting/`)
+
+Returns only the **body** of the reply letter (it follows the salutation; letterhead, date, case number,
+addressee and closing are added by the frontend / exporter):
+
+```python
+from contracts.models import DocumentInput, DraftInput
+
+draft = service.draft_response(DraftInput(
+    questions=[q.text for q in result.questions],              # the questions of the case
+    documents=[DocumentInput(filename=f.name, data=f.read())],  # replies from units: any number, any order
+    archived_reply=DocumentInput(filename=..., data=...),        # optional: reply of a highly similar case
+))
+draft.body                  # "w odpowiedzi na wniosek o udostępnienie informacji publicznej w zakresie …"
+draft.values_to_verify      # exact substrings to highlight: numbers/dates taken over + "[…]" placeholders
+draft.unanswered_questions  # 1-based numbers of `questions` nothing answers
+draft.period_differs, draft.notes, draft.warnings
+```
+
+- One LLM call. Documents are matched to questions by content and the unit names are taken from the
+  documents. Facts come from the documents first. The archived reply is the template for structure and wording,
+  and its facts are used only for questions no document answers. Those values are flagged, and
+  `period_differs` is set if they refer to another period.
+- `DocumentInput` = a file (`filename` + `data`, PDF/DOCX, OCR for scans) or `text`.
+- Neutral form (no Pan/Pani), private persons' data and internal remarks of the units dropped, "Ad 1 / Ad 2"
+  for several questions, missing answers → `[brak odpowiedzi komórki merytorycznej]`.
+- No documents and no archived reply, or no LLM: a template body to fill in + `warnings`. Unreadable files raise
+  `DocumentReadError`. Anonymization runs on the edited letter afterwards (separate module).
+- **Redirect letters** ("outside UMB competence") are not drafted here: `analyze_request` already returns
+  `result.redirect_draft` (same `DraftResult` shape) when `triage.kind == OUT_OF_SCOPE` — fixed template
+  (art. 4 ust. 3 UDIP, as in samples 15/17) with the contact data of `triage.competent_body_id`, no LLM.
+
 ### Question extraction (`ai_service/llm/`)
 
 Extracts only the applicant's questions/requests from the full text of a request (drops greetings,
@@ -203,6 +235,17 @@ router.directory.by_code["WE"].name            # name / email / url for the UI
 
 Codes are validated against `departments.json` (the model retries on unknown codes). Without an LLM the
 suggestions are empty.
+
+If no City Hall unit holds the data, the router returns the id of the **municipal unit or company outside the
+City Hall** that does (`QuestionRouting.external_body`, `result.competent_body()`; in `AnalyzeResult`:
+`questions[i].external_body_id` and `triage.competent_body_id` for `OUT_OF_SCOPE`). The list
+(`data/external_bodies.json`, 34 budget units, budget establishments, municipal companies and cultural
+institutions with address / phone / e-mail; no names of people) is scraped from BIP → "Jednostki
+Organizacyjne"; refresh with `uv run python scripts/scrape_external_bodies.py`. State bodies (Police, courts,
+voivodeship conservator, …) are not on the list in MVP v0 → `competent_body_id = None`, the official fills in
+the addressee. Checked with Gemini: trams → ZDMiKP, water prices → MWiK, MOPS benefits → MOPS, police →
+none; the samples 15/17 are still routed to City Hall units (the request text does not reveal that the data
+sits elsewhere — a repeated request is caught as a duplicate of the archived redirect instead).
 
 ### Vector store (`ai_service/vector_store/`)
 

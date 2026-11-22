@@ -174,7 +174,13 @@ Samples 15 (sculpture → Kujawsko-Pomorski Wojewódzki Konserwator Zabytków) a
 company → ZDMiKP) are redirect letters: "Urząd Miasta Bydgoszczy nie jest dysponentem wnioskowanych danych …
 art. 4 ust. 3 … winien się zwrócić do …" + contact data.
 
-### 4.1 External bodies directory (`data/external_bodies.json`)
+### 4.1 External bodies directory (`data/external_bodies.json`) — **implemented (municipal units only)**
+Implemented: `scripts/scrape_external_bodies.py` → 34 entries from BIP UMB "Jednostki Organizacyjne" (budget
+units `artykul/169/86`, budget establishments `162/87`, majority-owned companies `160/88`, cultural institutions
+`161/85`); fields `id, name, kind, address, phone, email, website, bip, source_url`; board members' names are
+skipped. Schools left out. Team decision: **no state bodies in MVP v0** (not on the city BIP) →
+`competent_body_id = None` and the letter shows the addressee as a placeholder. Loaded by
+`ai_service.routing.ExternalBodyDirectory`. Original design below for reference.
 - Fields: `id` (slug), `name`, `kind` (`municipal_unit` | `municipal_company` | `state_body` | `other`),
   `scope` (what it handles, used by the LLM), `address`, `email`, `phone`, `url`.
 - Content (~30–50 entries): Bydgoszcz municipal organizational units and companies from BIP (find the BIP UMB
@@ -184,7 +190,13 @@ art. 4 ust. 3 … winien się zwrócić do …" + contact data.
   Contact data comes **only** from this file, never from the LLM.
 - Loaded by `ai_service/routing/directory.py` (`ExternalBodyDirectory`, like `DepartmentDirectory`).
 
-### 4.2 Routing extension
+### 4.2 Routing extension — **implemented per question**
+Implemented as `QuestionRouting.external_body` (per question, only when `departments` is empty; validated;
+retry on unknown ids), `RoutingResult.competent_body()` (most frequent one), contract
+`RequestQuestion.external_body_id` and `Triage.competent_body_id`; prompt rule: prefer a City Hall unit if it
+holds/obtains the data. Gemini check: trams → ZDMiKP, water prices → MWiK, MOPS benefits → MOPS (mixed request
+split per question), police → none, 293 still WZK (correct); samples 15/17 still routed to City Hall units
+(not inferable from the request text). Original design below.
 `RoutingResult` gets request-level fields (same single LLM call):
 
 ```python
@@ -218,7 +230,7 @@ it in. The prompt gets the external bodies list (name + scope) next to the depar
 - For the demo: 1–2 short fictional department replies in `data/seed/department_replies/` (the samples contain
   only final BKS replies).
 
-### 5.2 Draft generation (`ai_service/drafting/drafter.py`, `ResponseDrafter`)
+### 5.2 Draft generation — implemented as `DepartmentReplyDrafter` (`ai_service/drafting/drafters.py`, see §6.2)
 - One LLM call. Inputs: questions, department replies `[{code, name, text}]`, optional style example (best
   similar archived reply). Output:
   ```python
@@ -231,7 +243,7 @@ it in. The prompt gets the external bodies list (name + scope) next to the depar
   placeholder, not an invented answer.
 - Without an LLM: deterministic body = for each question "Ad n" + the pasted department text.
 
-### 5.3 Letter assembly (`ai_service/drafting/letter.py`, deterministic, shared by all three paths)
+### 5.3 Letter assembly — implemented (`ai_service/drafting/letter.py`; neutral "Szanowni Państwo,")
 - Letterhead: "URZĄD MIASTA BYDGOSZCZY / Biuro Komunikacji Społecznej / 85-102 Bydgoszcz, ul. Jezuicka 1 /
   tel. (52) 58 58 365 / bks@um.bydgoszcz.pl" (from the sample replies).
 - "Bydgoszcz, dnia {d} {month in genitive} {yyyy} r." — own month table, no locale dependency.
@@ -271,7 +283,22 @@ SQLite id), no separate indexing call, no progress callback. Usage and fields: R
 - `factory.get_ai_service(mock=None)`: `AI_MOCK=1` → `MockAIService` (canned, no models); `.env.example` now
   has `AI_MOCK=0`.
 
-### 6.2 Still to add to the protocol (Part 2)
+### 6.2 Implemented — `draft_response` (team-defined inputs)
+Inputs decided by the team: `DraftInput{questions: list[str], documents: list[DocumentInput], archived_reply?:
+DocumentInput}`. The documents are any number of unit replies, not tied to questions, and `DocumentInput` has
+no `source`. The archived reply is given when the similarity was high. Output: **body only**,
+`DraftResult{body, values_to_verify, unanswered_questions, period_differs, notes, warnings}`. Documents win:
+facts come from them, and the archived reply serves as the template plus facts for uncovered questions
+(flagged). One `ReplyDrafter` (prompt `draft_reply.md`, validators: exact values, question numbers in
+range).
+**Out-of-scope** is decided right after the analysis (before any department is asked): `AnalyzeResult.
+redirect_draft` carries the fixed redirect body (`letter.py::redirect_body`, contacts from
+`data/external_bodies.json`, placeholder if no body). Gemini check: 543 with a WZK document (Q1–3) + reply of
+293 → facts from the document, Q4–5 marked missing (the 2024 plan in 293 is not the 2025 cost asked for); 18
+with an irrelevant + a WGO document → only WGO facts; 599 with the attachment-only reply of 307 → both answers
+missing, no fake attribution to a unit.
+
+### 6.2a Superseded first draft of the drafting contract (for reference)
 
 | Method | Input → Output | Notes |
 |--------|----------------|-------|

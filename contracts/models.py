@@ -29,6 +29,8 @@ class AnalyzeInput(BaseModel):
 class RequestQuestion(BaseModel):
     text: str  # self-contained question / request for information, original language
     departments: list[str] = Field(default_factory=list)  # unit codes to ask, most relevant first
+    # no department: id of the municipal unit/company holding the data (data/external_bodies.json), else None
+    external_body_id: str | None = None
 
 
 class QuestionMatch(BaseModel):
@@ -49,7 +51,8 @@ class Triage(BaseModel):
     kind: TriageKind = TriageKind.STANDARD
     # DUPLICATE: cases with practically the same questions, best first. The app checks which have a reply.
     duplicate_case_ids: list[int] = Field(default_factory=list)
-    # OUT_OF_SCOPE: id of the competent body (data/external_bodies.json, coming later); None = unknown.
+    # OUT_OF_SCOPE: id of the competent municipal unit/company (data/external_bodies.json); None = not on the
+    # list (e.g. state bodies) -> the official fills in the addressee.
     competent_body_id: str | None = None
     reason: str = ""  # short explanation for the official
 
@@ -67,6 +70,8 @@ class AnalyzeResult(BaseModel):
     similar_cases: list[SimilarCase] = Field(default_factory=list)  # best first, only relevant ones
     triage: Triage = Field(default_factory=Triage)
     warnings: list[str] = Field(default_factory=list)  # e.g. LLM or vector DB unavailable -> partial result
+    # OUT_OF_SCOPE only: ready body of the redirect letter (art. 4 ust. 3 UDIP + competent body's contacts)
+    redirect_draft: "DraftResult | None" = None
 
 
 class Health(BaseModel):
@@ -74,3 +79,44 @@ class Health(BaseModel):
     vector_db_count: int  # indexed questions (-1 = vector DB unavailable)
     departments_loaded: int
     llm_provider: str  # first configured model, "none" or "mock"
+
+
+# --- Draft reply (Part 2) ---------------------------------------------------------------------------------
+
+
+class DraftResult(BaseModel):
+    """Body of the reply letter (between salutation and closing; letterhead/date/number/addressee: frontend)."""
+
+    body: str
+    # exact substrings of body the official must check: numbers/dates taken over from documents and
+    # placeholders in square brackets (e.g. "[brak odpowiedzi komórki merytorycznej]") — highlight them
+    values_to_verify: list[str] = Field(default_factory=list)
+    unanswered_questions: list[int] = Field(default_factory=list)  # 1-based numbers of the input questions
+    period_differs: bool = False  # values taken from the archived reply refer to another period -> verify
+    notes: str = ""  # explanation for the official (Polish)
+    warnings: list[str] = Field(default_factory=list)  # e.g. LLM unavailable -> template body
+
+
+class DocumentInput(BaseModel):
+    """A document: a file (`filename` + `data`, .pdf / .docx) or already known `text`."""
+
+    filename: str = ""
+    data: bytes | None = None
+    text: str | None = None
+
+    @model_validator(mode="after")
+    def _text_or_file(self) -> "DocumentInput":
+        if self.text is None and (self.data is None or not self.filename):
+            raise ValueError("Provide `text`, or `filename` together with `data`.")
+        return self
+
+
+class DraftInput(BaseModel):
+    questions: list[str]  # the questions of the case (e.g. [q.text for q in analysis.questions])
+    # replies received from departments / units — any number, in any order, not tied to particular questions
+    documents: list[DocumentInput] = Field(default_factory=list)
+    # reply of an earlier, highly similar case (e.g. a DUPLICATE from triage): template + fallback facts
+    archived_reply: DocumentInput | None = None
+
+
+AnalyzeResult.model_rebuild()

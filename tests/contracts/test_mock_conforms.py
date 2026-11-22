@@ -11,3 +11,12 @@ def test_mock_conforms_and_returns_valid_result():
     assert isinstance(result, AnalyzeResult) and result.case_id == 42
     assert result.questions and result.similar_cases and result.summary
     assert service.health().llm_provider == "mock"
+
+
+def test_mock_draft_response():
+    from contracts.models import DocumentInput, DraftInput
+
+    service = get_ai_service(mock=True)
+    draft = service.draft_response(DraftInput(questions=["a", "b"], documents=[DocumentInput(text="x")]))
+    assert draft.body.startswith("w odpowiedzi") and draft.unanswered_questions == [2]
+    assert all(v in draft.body for v in draft.values_to_verify)
