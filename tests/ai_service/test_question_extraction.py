@@ -4,7 +4,7 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
-from ai_service.llm import QuestionExtractor, RequestQuestions
+from ai_service.llm import ExtractedQuery, QuestionExtractor, RequestQuestions, infer_parent_file_id
 from ai_service.llm.config import LLMSettings
 from ai_service.llm.model_factory import build_model
 
@@ -26,6 +26,20 @@ def test_extract_returns_structured_output():
     result = QuestionExtractor(TestModel(custom_output_args=CANNED)).extract(SAMPLE)
     assert isinstance(result, RequestQuestions)
     assert result.questions == CANNED["questions"]
+
+
+def test_extract_queries_assigns_sequential_query_ids():
+    queries = QuestionExtractor(TestModel(custom_output_args=CANNED)).extract_queries(SAMPLE)
+    assert queries == [
+        ExtractedQuery(query_id=1, question=CANNED["questions"][0]),
+        ExtractedQuery(query_id=2, question=CANNED["questions"][1]),
+    ]
+
+
+def test_infer_parent_file_id():
+    assert infer_parent_file_id("data/Wniosek - BKS.IV.1431.18.2026.docx") == "BKS.IV.1431.18.2026"
+    assert infer_parent_file_id("Odpowiedź - BKS.IV.1431.293.2025.anonymised.pdf") == "BKS.IV.1431.293.2025"
+    assert infer_parent_file_id("custom_request.pdf") == "custom_request"
 
 
 def test_request_text_and_instructions_reach_the_model():

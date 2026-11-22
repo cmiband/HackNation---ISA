@@ -11,12 +11,15 @@ Each LLM step is one API request per file (OCR for scans, extraction, routing, s
 import json
 import sys
 
-from ai_service.llm import QuestionExtractor, RequestSummarizer
+from dotenv import load_dotenv
+
+from ai_service.llm import QuestionExtractor, RequestSummarizer, infer_parent_file_id
 from ai_service.parsing import DocumentParseError, DocumentParser
 from ai_service.routing import DepartmentRouter
 
 
 def main(args: list[str]) -> None:
+    load_dotenv()
     text_only = "--text-only" in args
     route = "--route" in args
     summary_only = "--summary" in args
@@ -24,6 +27,8 @@ def main(args: list[str]) -> None:
     parser = DocumentParser.from_env()
     extractor = None if text_only else QuestionExtractor.from_env()
     router = DepartmentRouter.from_env() if route and not text_only else None
+    if extractor is not None:
+        print(f"LLM enabled: {extractor.uses_llm}", file=sys.stderr)
 
     for p in paths:
         try:
@@ -31,7 +36,12 @@ def main(args: list[str]) -> None:
         except DocumentParseError as exc:
             print(json.dumps({"file": p, "error": str(exc)}, ensure_ascii=False, indent=2))
             continue
-        out: dict = {"file": p, "method": doc.method, "pages": doc.pages}
+        out: dict = {
+            "file": p,
+            "parent_file_id": infer_parent_file_id(p),
+            "method": doc.method,
+            "pages": doc.pages,
+        }
         if text_only:
             out["text"] = doc.text
         elif summary_only:

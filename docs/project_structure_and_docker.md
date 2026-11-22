@@ -88,11 +88,15 @@ HackNation---ISA/
 │   ├── parsing/
 │   │   └── parser.py         # DocumentParser: PDF/DOCX bytes → text (pypdf, python-docx, LLM OCR)
 │   ├── embeddings/
-│   │   └── embedder.py       # sentence-transformers, model from EMBEDDING_MODEL
+│   │   ├── config.py         # EmbeddingSettings from env (EMBEDDING_MODEL, prefixes)
+│   │   ├── sparse.py         # SparseBm25Encoder: Polish tokenization + BM25 TF weights
+│   │   └── embedder.py       # QuestionEmbedder: sentence-transformers (dense) + BM25 (sparse)
 │   ├── vector_store/         # Qdrant, see section 5
 │   │   ├── config.py         # VectorStoreSettings (QDRANT_URL / QDRANT_PATH, collection, dense size)
 │   │   ├── types.py          # QuestionVectors, SparseVector, SimilarCaseHit, MatchedQuestion
 │   │   └── question_store.py # QuestionStore: upsert/delete case, hybrid search grouped by case_id
+│   ├── retrieval/
+│   │   └── similar_cases.py  # SimilarCasesRetriever: embedder + QuestionStore (case & per-question search)
 │   ├── routing/
 │   │   ├── directory.py      # DepartmentDirectory: loads data/departments.json
 │   │   └── router.py         # DepartmentRouter: questions → department codes per question (LLM)
@@ -121,6 +125,7 @@ HackNation---ISA/
 ├── scripts/
 │   ├── scrape_departments.py # BIP → data/departments.json (re-run to refresh)
 │   ├── extract_questions.py  # manual check: parse → extract questions → (--route) departments
+│   ├── seed_qdrant_local.py  # extract/cache .local/ requests, index into Qdrant, test hybrid search
 │   ├── archive_loader.py     # manual rerun of app/services/archive_loader.py (also runs in init_db when no cases exist)
 │   ├── seed_all.py           # idempotent: DB + vector index from data/seed (--if-empty)
 │   ├── reindex.py            # rebuild the vector index from DB + data/ (after a backend change)
@@ -133,6 +138,8 @@ HackNation---ISA/
     ├── contracts/test_mock_conforms.py   # MockAIService & AIService satisfy the Protocol
     ├── app/test_deadlines.py
     ├── ai_service/test_question_extraction.py
+    ├── ai_service/test_question_store.py
+    ├── ai_service/test_embeddings_and_retrieval.py
     ├── ai_service/test_parser.py
     └── ai_service/test_routing.py
 ```
@@ -229,8 +236,8 @@ Decided: **Qdrant**, as a separate Compose service (official image `qdrant/qdran
 - **Collection** `archive_questions`, one point per extracted question:
   - named vectors: `dense` (cosine, `DENSE_VECTOR_SIZE` = 768 for `sdadas/mmlw-roberta-base`) and sparse
     `bm25` (IDF modifier — Qdrant computes IDF);
-  - payload: `case_id` (= `Case.Id` in SQLite, payload index) and `question` — nothing else;
-  - point id: deterministic UUID from `case_id` + question position → re-upserting a case is idempotent.
+  - payload: `case_id` (= `Case.Id` in SQLite, payload index), `query_id` (1-based question index inside the case), `question`, and optional `file_id`;
+  - point id: deterministic UUID from `case_id` + `query_id` → re-upserting a case is idempotent.
 - **Search**: per query question a hybrid query (dense + BM25 prefetch, RRF fusion; dense-only if no sparse
   vector), grouped by `case_id`, optional `exclude_case_id`; a case's score = its best match. The search is
   over the whole collection (no year/department filters).
