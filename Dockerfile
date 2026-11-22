@@ -20,9 +20,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project
 
-# 2) Model download script (lightweight stub for Step 1)
+# 2) Bake the embedding model into the image (cached until the script or EMBEDDING_MODEL changes);
+#    at runtime Hugging Face stays offline, so no model download and no internet needed for it.
+ARG EMBEDDING_MODEL=sdadas/mmlw-roberta-base
 COPY scripts/download_models.py scripts/download_models.py
-RUN python scripts/download_models.py
+RUN EMBEDDING_MODEL=${EMBEDDING_MODEL} python scripts/download_models.py
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
 
 # 3) Project code
 COPY . .

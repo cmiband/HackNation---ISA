@@ -11,11 +11,12 @@ Failures of the LLM, embedder or vector DB never raise: the result is partial an
 missing. Only an unreadable file raises `contracts.protocol.DocumentReadError`.
 
 Similarity thresholds (cosine of the dense embeddings, calibrated on the sample requests; see
-docs/second_part_engineering_plan.md §3):
-    SIMILARITY_DUPLICATE  (0.90) every question of the request matches the case at least this well -> DUPLICATE
-    SIMILARITY_LOW        (0.86) a case is listed as similar only if some question matches this well;
-                                 nothing above it + no department -> OUT_OF_SCOPE
+docs/second_part_engineering_plan.md §3.3). mmlw-roberta-base gives unrelated Polish requests up to ~0.90
+(shared "Bydgoszcz", "ulica", "umowa" context) and real duplicates ≥ 0.92, so the band is narrow:
+    SIMILARITY_DUPLICATE  (0.92) every question of the request matches the case at least this well -> DUPLICATE
+    SIMILARITY_LOW        (0.91) a case is listed as similar only if one of its questions matches this well
     SIMILARITY_FLOOR      (0.75) cosine of unrelated texts for this model; mapped to score 0.0 in the result
+OUT_OF_SCOPE = the router found no unit for any question and there is no duplicate.
 """
 
 import logging
@@ -50,8 +51,8 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class TriageSettings:
-    duplicate: float = 0.90
-    low: float = 0.86
+    duplicate: float = 0.92
+    low: float = 0.91
     floor: float = 0.75
     max_similar_cases: int = 5
 
@@ -135,9 +136,9 @@ class AIService:
         else:
             warnings.append("No questions were found in the request.")
 
-        similar, duplicates, best = self._similar_cases(hits, len(questions))
+        similar, duplicates = self._similar_cases(hits, len(questions))
         routing = self._route(questions, warnings)
-        triage = self._triage(routing, duplicates, best, searched=bool(vectors))
+        triage = self._triage(routing, duplicates)
         self._index(case_id, questions, vectors, input_data.filename, warnings)
 
         log.info("analyze_request case=%s questions=%d took %.1fs", case_id, len(questions), time.perf_counter() - started)
@@ -158,6 +159,17 @@ class AIService:
 
     def delete_case(self, case_id: int) -> None:
         self._get_store().delete_case(case_id)
+
+    # --- seeding helpers (scripts only, not part of the protocol) -------------------------------------------
+
+    @property
+    def store(self) -> QuestionStore:
+        return self._get_store()
+
+    def index_case(self, case_id: int, questions: Sequence[str], file_id: str | None = None) -> int:
+        """Index already known questions under `case_id` (no LLM), replacing previous ones. Returns points."""
+        vectors = self.embedder.embed_questions([q for q in questions if q.strip()])
+        return self._get_store().upsert_case(case_id, vectors, file_id=file_id)
 
     def health(self) -> Health:
         try:
@@ -200,8 +212,8 @@ class AIService:
 
     def _similar_cases(
         self, hits: Sequence[SimilarCaseHit], question_count: int
-    ) -> tuple[list[SimilarCase], list[int], float]:
-        """Contract objects (relevant cases only), duplicate case ids, best cosine over all cases."""
+    ) -> tuple[list[SimilarCase], list[int]]:
+        """Contract objects (relevant cases only, best first) and the ids of duplicate cases."""
         s = self.triage_settings
         scored = []
         for hit in hits:
@@ -209,7 +221,6 @@ class AIService:
             scored.append((min(per_question), max(per_question), hit))
         scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
 
-        best = max((top for _, top, _ in scored), default=0.0)
         duplicates = [hit.case_id for coverage, _, hit in scored if coverage >= s.duplicate]
         similar = []
         for coverage, top, hit in scored:
@@ -231,9 +242,9 @@ class AIService:
                     matches=sorted(per_query.values(), key=lambda q: q.score, reverse=True),
                 )
             )
-        return similar[: s.max_similar_cases], duplicates, best
+        return similar[: s.max_similar_cases], duplicates
 
-    def _triage(self, routing: RoutingResult, duplicates: list[int], best: float, *, searched: bool) -> Triage:
+    def _triage(self, routing: RoutingResult, duplicates: list[int]) -> Triage:
         if duplicates:
             return Triage(
                 kind=TriageKind.DUPLICATE,
@@ -241,10 +252,10 @@ class AIService:
                 reason="Practically the same questions were already handled in an earlier case.",
             )
         no_department = bool(routing.questions) and not routing.all_departments()
-        if self.router.uses_llm and searched and no_department and best < self.triage_settings.low:
+        if self.router.uses_llm and no_department:
             return Triage(
                 kind=TriageKind.OUT_OF_SCOPE,
-                reason="No City Hall unit holds this information and no similar case exists.",
+                reason="No City Hall unit holds this information and no earlier case asked the same.",
             )
         return Triage()
 
@@ -255,8 +266,10 @@ class AIService:
             return
         try:
             same_prefix = self.embedder.settings.query_prefix == self.embedder.settings.doc_prefix
-            vectors = query_vectors if same_prefix and query_vectors else self.embedder.embed_questions(questions)
-            self._get_store().upsert_case(case_id, vectors, file_id=filename or None)
+            if same_prefix and query_vectors:
+                self._get_store().upsert_case(case_id, query_vectors, file_id=filename or None)
+            else:
+                self.index_case(case_id, questions, file_id=filename or None)
         except Exception:
             log.exception("indexing case %s failed", case_id)
             warnings.append("The case could not be saved in the similar-case index; analyze it again later.")
